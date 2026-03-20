@@ -4,9 +4,8 @@
     params:
       - name: count
         type: uint8_t
-  - name: elementList
+  - name: loopTime
     id: 2
     params:
-      - name: nums
+      - name: state
         type: uint8_t
-        count: 4

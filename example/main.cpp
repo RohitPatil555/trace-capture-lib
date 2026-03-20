@@ -18,32 +18,6 @@ using namespace std;
 static TestPlatform g_pltf;
 
 /*
- * Demonstrates posting an trace that carries an array of numbers.
- *
- * The trace type `elementList_t` contains a fixed‑size array called
- * `nums`.  We obtain the parameter structure via `getParam()`,
- * populate it, and then push the trace to the collector.
- */
-void trace_array_example() {
-	Trace<elementList_t> evt;
-	elementList_t *param = nullptr;
-	traceCollector *inst = nullptr;
-
-	/* Retrieve the singleton instance of the collector. */
-	inst = traceCollector::getInstance();
-
-	/* Get a pointer to the trace’s payload and fill it. */
-	param			 = evt.getParam();
-	param->nums[ 0 ] = 11;
-	param->nums[ 1 ] = 22;
-	param->nums[ 2 ] = 33;
-	param->nums[ 3 ] = 44;
-
-	/* Push the fully‑filled trace to the collector. */
-	inst->pushTrace( &evt );
-}
-
-/*
  * Posts a series of traces in a tight loop.
  *
  * Each trace carries an incrementing counter (type `loopCount_t`).
@@ -52,19 +26,29 @@ void trace_array_example() {
  */
 void trace_loop_index( uint32_t maxLoopCount ) {
 	uint32_t idx = 0;
-	Trace<loopCount_t> evt;
-	loopCount_t *param	 = nullptr;
-	traceCollector *inst = nullptr;
+	Trace<loopCount_t> loopIdx;
+	Trace<loopTime_t> loopTime;
+	loopCount_t *param	  = nullptr;
+	loopTime_t *timeParam = nullptr;
+	traceCollector *inst  = nullptr;
 
 	/* Retrieve the singleton instance of the collector. */
 	inst = traceCollector::getInstance();
 
-	param = evt.getParam();
+	timeParam = loopTime.getParam();
+	param	  = loopIdx.getParam();
+
+	timeParam->state = 1;
+	inst->pushTrace( &loopTime );
+
 	for ( idx = 0; idx < maxLoopCount; idx++ ) {
 		/* Update the counter and push the trace. */
-		param->count = idx;
-		inst->pushTrace( &evt );
+		param->count = idx + 1;
+		inst->pushTrace( &loopIdx );
 	}
+
+	timeParam->state = 0;
+	inst->pushTrace( &loopTime );
 }
 
 /*
@@ -114,7 +98,6 @@ int main() {
 
 	/* Generate sample traces. */
 	trace_loop_index( 10 );
-	trace_array_example();
 
 	/* Export the collected data to a file. */
 	if ( !dumpFile( "stream.bin" ) ) {

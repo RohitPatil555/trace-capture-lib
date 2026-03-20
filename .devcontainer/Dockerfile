@@ -19,7 +19,7 @@ RUN apt-get update && \
     libgtest-dev \
     libgmock-dev \
     cmake \
-    babeltrace2 python3-bt2 \
+    babeltrace2 python3-bt2 vim \
     && rm -rf /var/lib/apt/lists/*
 
 # --------------------------------------------------------------------

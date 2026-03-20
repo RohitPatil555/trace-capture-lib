@@ -236,26 +236,27 @@ def check_argument(trace):
         sys.exit(-1)
 
     params = trace.get('params', [])
-    for p in params:
-        t = p['type']
-        n = p['name']
-        if not isinstance(n, str):
-            print(f"group:{gName} trace:{trace_name} parameter name is not as type string {n}")
-            sys.exit(-1)
-        if not isinstance(t, str):
-            print(f"group:{gName} trace:{trace_name} parameter {n}: type is not in string {t}")
-            sys.exit(-1)
-        if 'count' in p:
-            c = p['count']
-            if not isinstance(c, int):
-                print(f"group:{gName} trace:{trace_name} parameter {n}: count don't have type integer {c}")
+    if params is not None and isinstance(params, list) and len(params) != 0:
+        for p in params:
+            t = p['type']
+            n = p['name']
+            if not isinstance(n, str):
+                print(f"group:{gName} trace:{trace_name} parameter name is not as type string {n}")
                 sys.exit(-1)
-            if c <= 0:
-                print(f"group:{gName} trace:{trace_name} parameter {n} count not allow as negative or zero {c}")
+            if not isinstance(t, str):
+                print(f"group:{gName} trace:{trace_name} parameter {n}: type is not in string {t}")
                 sys.exit(-1)
-        if t not in _supported_type_list:
-            print(f"group:{gName} trace:{trace_name} have unsupported type {t}")
-            sys.exit(-1)
+            if 'count' in p:
+                c = p['count']
+                if not isinstance(c, int):
+                    print(f"group:{gName} trace:{trace_name} parameter {n}: count don't have type integer {c}")
+                    sys.exit(-1)
+                if c <= 0:
+                    print(f"group:{gName} trace:{trace_name} parameter {n} count not allow as negative or zero {c}")
+                    sys.exit(-1)
+            if t not in _supported_type_list:
+                print(f"group:{gName} trace:{trace_name} have unsupported type {t}")
+                sys.exit(-1)
 
 # --------------------------------------------------------------------------- #
 # Main entry point ---------------------------------------------------------- #
