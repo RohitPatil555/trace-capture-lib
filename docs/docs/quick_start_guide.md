@@ -62,20 +62,20 @@ To generate and populate an trace:
 2.  Instantiate a variable of the generated trace structure type (e.g., `Trace<trace1_t>`):
 
     ```cpp
-    Trace<trace1_t> evt1;
+    Trace<trace1_t> trace1;
     ```
 
 3.  Update the trace parameters (e.g., `"field1"`) using the `getParam()` method:
 
     ```cpp
-    evt1.getParam()->field1 = 2;
+    trace1.getParam()->field1 = 2;
     ```
 
 4.  Log the populated trace using the framework's singleton instance:
 
     ```cpp
     traceCollector * inst = traceCollector::getInstance();
-    inst->pushTrace( &evt1 );
+    inst->pushTrace( &trace1 );
     ```
 
 ### Posting Trace Packets to an Interface

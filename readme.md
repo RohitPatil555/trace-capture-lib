@@ -97,29 +97,29 @@ When you run CMake, it will:
 
 int main() {
     /* ---------- Init Collector ---------- */
-    auto& ec = traceCollector::getInstance();
+    auto& tc = traceCollector::getInstance();
 
     // Provide a platform implementation (see below)
     extern tracePlatform g_platform;   // defined elsewhere
-    ec.setStreamId(42);                // any uint32_t stream ID
-    ec.setPlatformIntf(&g_platform);
+    tc.setStreamId(42);                // any uint32_t stream ID
+    tc.setPlatformIntf(&g_platform);
 
     /* ---------- Emit an trace ---------- */
     Trace<loopCount_t> evt;
     auto* p = evt.getParam();          // get the underlying struct
     p->count = 7;                      // fill parameters
 
-    ec.pushTrace(&evt);                // send to collector
+    tc.pushTrace(&evt);                // send to collector
 
     /* ---------- Transfer packet ---------- */
-    auto pkt = ec.getSendPacket();
+    auto pkt = tc.getSendPacket();
 	if ( pkt.has_value() ) {
 		auto data = pkt.value();
 
         // e.g., write to UART, file or socket
 		my_transmit( reinterpret_cast<const char *>( data.data() ), data.size() );
 
-		ec.sendPacketCompleted();
+		tc.sendPacketCompleted();
 	}
 
     return 0;
@@ -213,7 +213,7 @@ out.write(reinterpret_cast<const char*>(data.data()), data.size());
 After the packet is transmitted, call:
 
 ```cpp
-ec.sendPacketCompleted();
+tc.sendPacketCompleted();
 ```
 
 This signals that the buffer can be reused for subsequent traces.
