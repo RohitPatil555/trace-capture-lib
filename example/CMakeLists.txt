@@ -12,12 +12,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)   # useful for clangd / other tools
 
-set(EVENT_DESCRIPTION_FILE ${CMAKE_CURRENT_SOURCE_DIR}/example.yml)
-set(EVENT_GENERATED_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
+set(TRACE_DESCRIPTION_FILE ${CMAKE_CURRENT_SOURCE_DIR}/example.yml)
+set(TRACE_GENERATED_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
 
-file(MAKE_DIRECTORY ${EVENT_GENERATED_OUT_DIR})
+file(MAKE_DIRECTORY ${TRACE_GENERATED_OUT_DIR})
 
-add_subdirectory(.. ${CMAKE_BINARY_DIR}/event)
+add_subdirectory(.. ${CMAKE_BINARY_DIR}/trace)
 
 add_executable(example
         src/examplePlatform.cpp
@@ -29,5 +29,5 @@ target_include_directories(example PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
-target_link_libraries(example PRIVATE embdEventLog)
+target_link_libraries(example PRIVATE embdTraceLog)
 add_dependencies(example generate_config)

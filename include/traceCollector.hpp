@@ -15,29 +15,29 @@
  *  Project headers
  * -------------------------------------------------------------------------- */
 #include <config.hpp>
-#include <event.hpp>
+#include <trace.hpp>
 
 /* Forward declaration – the packet type is defined elsewhere */
-class eventPacket;
+class tracePacket;
 
 /* --------------------------------------------------------------------------
  *  Platform Interface
  *
- *  The `eventPlatform` class defines the only operations that the user must
+ *  The `tracePlatform` class defines the only operations that the user must
  *  provide.  All methods are pure virtual so that any concrete platform can
  *  be plugged in without changing this header.
  * -------------------------------------------------------------------------- */
-class eventPlatform {
+class tracePlatform {
 public:
 	/* Return a monotonically increasing timestamp (nanoseconds is common). */
 	virtual uint64_t getTimestamp() = 0;
 
 	/* Try an acquire an exclusive lock before mutating shared state.
 	 * Return : True if success and False if fail to get within timeout */
-	virtual bool eventTryLock() = 0;
+	virtual bool traceTryLock() = 0;
 
 	/* Release the lock after mutation is finished. */
-	virtual void eventUnlock() = 0;
+	virtual void traceUnlock() = 0;
 
 	/* Acquire an exclusive lock for packet collection and send */
 	virtual void packetLock() = 0;
@@ -47,9 +47,9 @@ public:
 };
 
 /* --------------------------------------------------------------------------
- *  Event Collector
+ *  Trace Collector
  *
- *  `eventCollector` is a singleton that collects events into packets.
+ *  `traceCollector` is a singleton that collects traces into packets.
  *  It owns an opaque implementation object (`Impl`) stored in a fixed‑size
  *  buffer to avoid dynamic allocation on the critical path.  The collector
  *  keeps two packet pointers:
@@ -57,7 +57,7 @@ public:
  *      - currPkt : packet currently being built
  *      - sendPkt : packet that has been finished and is ready for sending
  * -------------------------------------------------------------------------- */
-class eventCollector {
+class traceCollector {
 	/* ----------------------------------------------------------------------
 	 *  Impl
 	 *
@@ -78,20 +78,20 @@ class eventCollector {
 	 *
 	 *  The collector delegates timestamp and locking to this interface.
 	 * ---------------------------------------------------------------------- */
-	eventPlatform *pltf;
+	tracePlatform *pltf;
 
 	/* ----------------------------------------------------------------------
 	 *  Packet bookkeeping
 	 *
 	 *  Two packet pointers are maintained:
-	 *      - currPkt: the packet being populated with events
+	 *      - currPkt: the packet being populated with traces
 	 *      - sendPkt: the packet that is in progress to send out.
 	 * ---------------------------------------------------------------------- */
-	eventPacket *currPkt;
-	eventPacket *sendPkt;
+	tracePacket *currPkt;
+	tracePacket *sendPkt;
 
 	uint32_t
-		discardEventCount; // number of events dropped because the current packet is not available
+		discardTraceCount; // number of traces dropped because the current packet is not available
 	uint32_t pktSqnNo;	   // monotonically increasing sequence number for packets.
 	uint32_t streamId;	   // identifier that will be embedded in each packet header.
 
@@ -101,16 +101,16 @@ class eventCollector {
 	 *  The singleton is created on first use via `getInstance()`.  The ctor
 	 *  sets up the Impl object inside the storage buffer.
 	 * ---------------------------------------------------------------------- */
-	eventCollector();
+	traceCollector();
 
 	/* lazily creates or re‑uses a packet for writing. */
-	eventPacket *getCurrentPacket();
+	tracePacket *getCurrentPacket();
 
 	/* finalises the current packet and hands it to send-Q */
 	void sendPacket();
 
-	/* serialises an event into the current packet.*/
-	void sendEvent( EventIntf *evt );
+	/* serialises an trace into the current packet.*/
+	void sendTrace( TraceIntf *evt );
 
 public:
 	/* ----------------------------------------------------------------------
@@ -118,18 +118,18 @@ public:
 	 *
 	 *  `noexcept` guarantees that retrieving the instance cannot throw.
 	 * ---------------------------------------------------------------------- */
-	static eventCollector *getInstance() noexcept;
+	static traceCollector *getInstance() noexcept;
 
 	/* ----------------------------------------------------------------------
-	 *  Event submission
+	 *  Trace submission
 	 *
-	 *  The template accepts any type that satisfies the `IsEventType`
+	 *  The template accepts any type that satisfies the `IsTraceType`
 	 *  concept.  It simply casts to the base interface and forwards it
-	 *  to `sendEvent()`.
+	 *  to `sendTrace()`.
 	 * ---------------------------------------------------------------------- */
-	template <IsEventType E> inline void pushEvent( E *ptr ) {
-		EventIntf *intf = ptr;
-		sendEvent( intf );
+	template <IsTraceType E> inline void pushTrace( E *ptr ) {
+		TraceIntf *intf = ptr;
+		sendTrace( intf );
 	}
 
 	/* ----------------------------------------------------------------------
@@ -143,9 +143,9 @@ public:
 	void sendPacketCompleted(); // Notify that the platform has finished sending `sendPkt`
 
 	/* --------------------------------------------------------------------
-	 *  If system stuck and not generating enough event to push packet for send.
+	 *  If system stuck and not generating enough trace to push packet for send.
 	 *  In such scenario, call this API, this will force current packet to send
-	 *  all collected event.
+	 *  all collected trace.
 	 * -------------------------------------------------------------------- */
 	void forceSync( void );
 
@@ -156,5 +156,5 @@ public:
 	 *  pltf     – registers the platform interface implementation.
 	 * ---------------------------------------------------------------------- */
 	void setStreamId( uint32_t _streamId );
-	void setPlatformIntf( eventPlatform *_pltf );
+	void setPlatformIntf( tracePlatform *_pltf );
 };

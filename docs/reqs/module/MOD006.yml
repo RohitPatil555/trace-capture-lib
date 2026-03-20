@@ -9,10 +9,10 @@ ref: ''
 reviewed: null
 text: |
   Implement a three‑state machine for each packet:
-    <br>• Empty – ready to accept new events.
-    <br>• InUse – currently collecting events.
+    <br>• Empty – ready to accept new traces.
+    <br>• InUse – currently collecting traces.
     <br>• ReadyToSend – fully populated and queued for transmission.
   The state transitions are:
-    <br>- Empty → InUse when an event is added.
+    <br>- Empty → InUse when an trace is added.
     <br>- InUse → ReadyToSend when the packet buffer is full.
     <br>- ReadyToSend → Empty after successful transmission.

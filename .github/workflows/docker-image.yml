@@ -17,7 +17,7 @@ jobs:
 
     - name: Get project detail
       run: |
-        PROJECT_NAME="${{ github.event.repository.name }}"
+        PROJECT_NAME="${{ github.trace.repository.name }}"
         echo "The project name is: $PROJECT_NAME"
         # You can also set it as an environment variable for subsequent steps
         echo "PROJECT_NAME=$PROJECT_NAME" >> $GITHUB_ENV

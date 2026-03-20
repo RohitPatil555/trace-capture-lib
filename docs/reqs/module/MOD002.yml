@@ -8,5 +8,5 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Each packet’s payload field contains one or more concatenated event blocks,
+  Each packet’s payload field contains one or more concatenated trace blocks,
   each preceded by a fixed header as defined in CTF‑2.

@@ -1,8 +1,8 @@
 /*********************************************************************
- *  eventCollector implementation
+ *  traceCollector implementation
  *
  *  This file implements a lightweight runtime component that
- *  aggregates individual events into packets for transmission.
+ *  aggregates individual traces into packets for transmission.
  *  The design follows the P‑Impl idiom to keep the public interface
  *  stable while allowing internal changes without breaking ABI.
  *********************************************************************/
@@ -16,9 +16,9 @@
  *  Project headers
  * -------------------------------------------------------------------------- */
 #include <Queue.hpp>
-#include <eventCollector.hpp>
-#include <internal/eventPacket.hpp>
+#include <internal/tracePacket.hpp>
 #include <staticPool.hpp>
+#include <traceCollector.hpp>
 
 /* --------------------------------------------------------------------
  *  Global pool of packet objects.
@@ -27,17 +27,17 @@
  *  CONFIG_PACKET_COUNT_MAX.  It provides fast allocation and
  *  deallocation without dynamic memory fragmentation.
  * -------------------------------------------------------------------- */
-static StaticPool<eventPacket, CONFIG_PACKET_COUNT_MAX> pktPool;
+static StaticPool<tracePacket, CONFIG_PACKET_COUNT_MAX> pktPool;
 
 /* --------------------------------------------------------------------
- *  Private implementation of eventCollector (P‑Impl).
+ *  Private implementation of traceCollector (P‑Impl).
  *
  *  The Impl only contains a queue that holds pointers to packets
  *  ready for transmission.  The queue capacity matches the pool
  *  size so no allocation failure can occur.
  * -------------------------------------------------------------------- */
-struct eventCollector::Impl {
-	Queue<eventPacket_ptr_t, CONFIG_PACKET_COUNT_MAX> queue;
+struct traceCollector::Impl {
+	Queue<tracePacket_ptr_t, CONFIG_PACKET_COUNT_MAX> queue;
 };
 
 /* --------------------------------------------------------------------
@@ -45,26 +45,26 @@ struct eventCollector::Impl {
  *
  *  * `impl`   : placement‑new of Impl inside the storage buffer.
  * -------------------------------------------------------------------- */
-eventCollector::eventCollector() {
+traceCollector::traceCollector() {
 	static_assert( ImplSize == sizeof( Impl ), "hidden implementation size not matching" );
 
 	impl			  = new ( storage.data() ) Impl();
 	sendPkt			  = nullptr;
 	currPkt			  = nullptr;
-	discardEventCount = 0;
+	discardTraceCount = 0;
 	pktSqnNo		  = 0;
 	streamId		  = 0;
 	pltf			  = nullptr;
 }
 
 /* --------------------------------------------------------------------
- *  Acquire the current packet for event insertion.
+ *  Acquire the current packet for trace insertion.
  *
  *  If no packet is currently active, allocate one from the pool,
  *  initialise it with the current stream ID and sequence number
  *  and reset the discard counter.
  * -------------------------------------------------------------------- */
-eventPacket *eventCollector::getCurrentPacket() {
+tracePacket *traceCollector::getCurrentPacket() {
 	uint64_t ts = 0;
 
 	if ( currPkt == nullptr ) {
@@ -74,7 +74,7 @@ eventPacket *eventCollector::getCurrentPacket() {
 
 		ts = pltf->getTimestamp();
 		currPkt->init( streamId, pktSqnNo, ts );
-		discardEventCount = 0;
+		discardTraceCount = 0;
 		pktSqnNo++;
 	}
 
@@ -89,7 +89,7 @@ eventPacket *eventCollector::getCurrentPacket() {
  *  can be built.  Because the queue capacity equals the pool size,
  *  insertion never fails – the following assert guarantees that.
  * -------------------------------------------------------------------- */
-void eventCollector::sendPacket() {
+void traceCollector::sendPacket() {
 	bool qstatus = false;
 	// this must not be null in this path as per design.
 	assert( currPkt != nullptr );
@@ -111,39 +111,39 @@ void eventCollector::sendPacket() {
  *  The collector is a global, stateless object.  This function
  *  returns the single instance.
  * -------------------------------------------------------------------- */
-eventCollector *eventCollector::getInstance() noexcept {
-	static eventCollector eventInst;
+traceCollector *traceCollector::getInstance() noexcept {
+	static traceCollector traceInst;
 
-	return &eventInst;
+	return &traceInst;
 }
 
 /* --------------------------------------------------------------------
- *  Public API – add an event to the collector.
+ *  Public API – add an trace to the collector.
  *
  *  1. Obtain or create a current packet.
- *  2. Acquire platform timestamp and store it in the event.
- *  3. Add the event to the packet (thread‑safe via platform lock).
+ *  2. Acquire platform timestamp and store it in the trace.
+ *  3. Add the trace to the packet (thread‑safe via platform lock).
  *  4. If the packet becomes full, build its wire format and
  *     enqueue it for sending.
  * -------------------------------------------------------------------- */
-void eventCollector::sendEvent( EventIntf *evt ) {
-	eventPacket *curr = getCurrentPacket();
+void traceCollector::sendTrace( TraceIntf *evt ) {
+	tracePacket *curr = getCurrentPacket();
 	uint64_t _ts	  = 0;
 
 	if ( curr == nullptr ) {
-		discardEventCount++;
+		discardTraceCount++;
 		return;
 	}
 
-	if ( !pltf->eventTryLock() ) {
-		curr->dropEvent();
+	if ( !pltf->traceTryLock() ) {
+		curr->dropTrace();
 		return;
 	}
 
 	_ts = pltf->getTimestamp();
 	evt->setTimestamp( _ts );
-	curr->addEvent( evt );
-	pltf->eventUnlock();
+	curr->addTrace( evt );
+	pltf->traceUnlock();
 
 	if ( curr->isPacketFull() ) {
 		_ts = pltf->getTimestamp();
@@ -157,7 +157,7 @@ void eventCollector::sendEvent( EventIntf *evt ) {
  *
  *  The packet is returned to the pool so it can be reused.
  * -------------------------------------------------------------------- */
-void eventCollector::sendPacketCompleted() {
+void traceCollector::sendPacketCompleted() {
 	if ( sendPkt != nullptr ) {
 		pltf->packetLock();
 		pktPool.release( sendPkt );
@@ -168,18 +168,18 @@ void eventCollector::sendPacketCompleted() {
 }
 
 /* --------------------------------------------------------------------
- *  If system stuck and not generating enough event to push packet for send.
+ *  If system stuck and not generating enough trace to push packet for send.
  *  In such scenario, call this API, this will force current packet to send
- *  all collected event.
+ *  all collected trace.
  * -------------------------------------------------------------------- */
-void eventCollector::forceSync( void ) {
+void traceCollector::forceSync( void ) {
 	if ( currPkt == nullptr ) {
 		// No packet to flush hence return early.
 		return;
 	}
 
 	uint64_t _ts	  = 0;
-	eventPacket *curr = getCurrentPacket();
+	tracePacket *curr = getCurrentPacket();
 
 	_ts = pltf->getTimestamp();
 	curr->buildPacket( _ts );
@@ -194,7 +194,7 @@ void eventCollector::forceSync( void ) {
  *  caller receives an optional byte span that points to the raw
  *  packet buffer; if the queue was empty `std::nullopt` is returned.
  * -------------------------------------------------------------------- */
-std::optional<std::span<const std::byte>> eventCollector::getSendPacket() {
+std::optional<std::span<const std::byte>> traceCollector::getSendPacket() {
 	if ( sendPkt == nullptr ) {
 		pltf->packetLock();
 
@@ -217,7 +217,7 @@ std::optional<std::span<const std::byte>> eventCollector::getSendPacket() {
  *  The call must be idempotent – it is only legal to set the ID
  *  once during initialization.  An assertion guards against misuse.
  * -------------------------------------------------------------------- */
-void eventCollector::setStreamId( uint32_t _streamId ) {
+void traceCollector::setStreamId( uint32_t _streamId ) {
 	// either called 2 time or some error in init path.
 	assert( streamId == 0 );
 
@@ -231,7 +231,7 @@ void eventCollector::setStreamId( uint32_t _streamId ) {
  *  thread‑synchronisation.  It must only be set once; otherwise
  *  a double‑initialisation would corrupt state.
  * -------------------------------------------------------------------- */
-void eventCollector::setPlatformIntf( eventPlatform *_pltf ) {
+void traceCollector::setPlatformIntf( tracePlatform *_pltf ) {
 	assert( pltf == nullptr );
 
 	pltf = _pltf;

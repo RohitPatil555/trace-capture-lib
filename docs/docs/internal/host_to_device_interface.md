@@ -1,6 +1,6 @@
 # Host to Device Interface
 
-This section explains how the host and device communicate to collect event packets for offline analysis. It also describes the commands supported by the device to retrieve the required output from the event logging module.
+This section explains how the host and device communicate to collect trace packets for offline analysis. It also describes the commands supported by the device to retrieve the required output from the trace logging module.
 
 ## Command / Response
 

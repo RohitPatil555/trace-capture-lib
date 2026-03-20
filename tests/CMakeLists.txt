@@ -37,7 +37,7 @@ find_package(GTest REQUIRED)          # gtest/gmock via vcpkg, Conan or system
 
 add_executable(tests main.cpp)
 target_include_directories(tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../tmpl)
-target_link_libraries(tests PRIVATE embdEventLog GTest::gtest GTest::gmock)
+target_link_libraries(tests PRIVATE embdTraceLog GTest::gtest GTest::gmock)
 
 # Add coverage if enabled
 if(ENABLE_COVERAGE)
@@ -52,7 +52,7 @@ endif()
 set(TESTS_SRCS basic.cpp
     packetPool.cpp
     packetOp.cpp
-    eventCollectorTest.cpp
+    traceCollectorTest.cpp
 )
 
 target_sources(tests PRIVATE ${TESTS_SRCS})

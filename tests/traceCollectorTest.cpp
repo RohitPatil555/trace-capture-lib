@@ -1,19 +1,19 @@
-#include <event.hpp>
-#include <eventCollector.hpp>
 #include <gtest/gtest.h>
+#include <trace.hpp>
+#include <traceCollector.hpp>
 
 using namespace std;
 
-// Mock event class for testing
+// Mock trace class for testing
 typedef struct {
 	array<std::byte, 10> value;
-} __attribute__( ( packed ) ) mock_event_t;
+} __attribute__( ( packed ) ) mock_trace_t;
 
-template <> struct EventId<mock_event_t> {
+template <> struct TraceId<mock_trace_t> {
 	static constexpr uint32_t value = 1;
 };
 
-class TestPlatform : public eventPlatform {
+class TestPlatform : public tracePlatform {
 	uint64_t ts;
 
 public:
@@ -24,8 +24,8 @@ public:
 		return ts;
 	}
 
-	bool eventTryLock() { return true; }
-	void eventUnlock() {}
+	bool traceTryLock() { return true; }
+	void traceUnlock() {}
 
 	void packetLock() {}
 	void packetUnlock() {}
@@ -34,11 +34,11 @@ public:
 static TestPlatform g_TestPltf;
 bool g_isInitialized = false;
 
-class EventCollectorTest : public ::testing::Test {
+class TraceCollectorTest : public ::testing::Test {
 protected:
 	void SetUp() override {
 		if ( !g_isInitialized ) {
-			auto *inst3 = eventCollector::getInstance();
+			auto *inst3 = traceCollector::getInstance();
 			inst3->setStreamId( 0 );
 			inst3->setPlatformIntf( &g_TestPltf );
 			g_isInitialized = true;
@@ -47,26 +47,26 @@ protected:
 };
 
 // Test: Verify singleton instance
-TEST_F( EventCollectorTest, SingletonInstance ) {
-	auto *inst1 = eventCollector::getInstance();
-	auto *inst2 = eventCollector::getInstance();
+TEST_F( TraceCollectorTest, SingletonInstance ) {
+	auto *inst1 = traceCollector::getInstance();
+	auto *inst2 = traceCollector::getInstance();
 	EXPECT_EQ( inst1, inst2 );
 
 	// TODO: need to see what to do for UT
 }
 
-// Test: Push events and send first packet
-TEST_F( EventCollectorTest, PushAndSendFirstPacket ) {
-	auto *collector = eventCollector::getInstance();
+// Test: Push traces and send first packet
+TEST_F( TraceCollectorTest, PushAndSendFirstPacket ) {
+	auto *collector = traceCollector::getInstance();
 
-	// Create mock events
-	auto evt			= new Event<mock_event_t>;
-	mock_event_t *param = evt->getParam();
+	// Create mock traces
+	auto evt			= new Trace<mock_trace_t>;
+	mock_trace_t *param = evt->getParam();
 	memset( param->value.data(), 0x11, 10 );
 
-	// Push events to fill current packet
-	for ( int i = 0; i < CONFIG_EVENT_MAX_PER_PACKET; i++ ) {
-		collector->pushEvent( evt );
+	// Push traces to fill current packet
+	for ( int i = 0; i < CONFIG_TRACE_MAX_PER_PACKET; i++ ) {
+		collector->pushTrace( evt );
 	}
 
 	delete evt;
@@ -81,25 +81,25 @@ TEST_F( EventCollectorTest, PushAndSendFirstPacket ) {
 }
 
 // Test: Handle empty send queue
-TEST_F( EventCollectorTest, EmptySendQueue ) {
-	auto *collector = eventCollector::getInstance();
+TEST_F( TraceCollectorTest, EmptySendQueue ) {
+	auto *collector = traceCollector::getInstance();
 
 	auto sendPacket = collector->getSendPacket();
 	EXPECT_FALSE( sendPacket.has_value() );
 }
 
 // Test: Sequential packet sending with completion
-TEST_F( EventCollectorTest, SequentialPackets ) {
-	auto *collector = eventCollector::getInstance();
+TEST_F( TraceCollectorTest, SequentialPackets ) {
+	auto *collector = traceCollector::getInstance();
 
-	// Create mock events
-	auto evt1			 = new Event<mock_event_t>;
-	mock_event_t *param1 = evt1->getParam();
+	// Create mock traces
+	auto evt1			 = new Trace<mock_trace_t>;
+	mock_trace_t *param1 = evt1->getParam();
 	memset( param1->value.data(), 0x11, 10 );
 
-	// Push events to fill current packet
-	for ( int i = 0; i < CONFIG_EVENT_MAX_PER_PACKET; i++ ) {
-		collector->pushEvent( evt1 );
+	// Push traces to fill current packet
+	for ( int i = 0; i < CONFIG_TRACE_MAX_PER_PACKET; i++ ) {
+		collector->pushTrace( evt1 );
 	}
 
 	delete evt1;
@@ -112,14 +112,14 @@ TEST_F( EventCollectorTest, SequentialPackets ) {
 	// Complete first packet
 	collector->sendPacketCompleted();
 
-	// Create mock events
-	auto evt2			 = new Event<mock_event_t>;
-	mock_event_t *param2 = evt2->getParam();
+	// Create mock traces
+	auto evt2			 = new Trace<mock_trace_t>;
+	mock_trace_t *param2 = evt2->getParam();
 	memset( param2->value.data(), 0x22, 10 );
 
-	// Push events to fill current packet
-	for ( int i = 0; i < CONFIG_EVENT_MAX_PER_PACKET; i++ ) {
-		collector->pushEvent( evt2 );
+	// Push traces to fill current packet
+	for ( int i = 0; i < CONFIG_TRACE_MAX_PER_PACKET; i++ ) {
+		collector->pushTrace( evt2 );
 	}
 
 	delete evt2;

@@ -10,4 +10,4 @@ reviewed: null
 text: |
   Implement two primary commands:
     <br>- GET_PACKET – request current fill packet
-    <br>- CONFIG – update runtime parameters (e.g., event filter, packet timeout).
+    <br>- CONFIG – update runtime parameters (e.g., trace filter, packet timeout).

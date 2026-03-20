@@ -1,4 +1,4 @@
-- events:
+- traces:
   - name: loopCount
     id: 1
     params:

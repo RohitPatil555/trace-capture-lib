@@ -1,14 +1,14 @@
 #include <gtest/gtest.h>
 
-#include <eventCollector.hpp>
+#include <traceCollector.hpp>
 
-TEST( BasicTest, testSingletonEventLog ) {
-	eventCollector *ptr	 = nullptr;
-	eventCollector *ptr1 = nullptr;
+TEST( BasicTest, testSingletonTraceLog ) {
+	traceCollector *ptr	 = nullptr;
+	traceCollector *ptr1 = nullptr;
 
-	ptr = eventCollector::getInstance();
+	ptr = traceCollector::getInstance();
 	EXPECT_NE( ptr, nullptr );
 
-	ptr1 = eventCollector::getInstance();
+	ptr1 = traceCollector::getInstance();
 	EXPECT_EQ( ptr, ptr1 );
 }

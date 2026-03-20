@@ -8,5 +8,5 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Allow the maximum payload size per event to be set via a compile‑time macro
+  Allow the maximum payload size per trace to be set via a compile‑time macro
   or configuration file so that memory usage can be tailored to the target system.

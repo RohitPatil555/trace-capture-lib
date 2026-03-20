@@ -6,7 +6,7 @@ import yaml
 import textwrap
 from jinja2 import Template
 
-# Supported C/C++ integer types that can appear in the event definitions.
+# Supported C/C++ integer types that can appear in the trace definitions.
 _supported_type_list = ["uint8_t", "uint16_t", "uint32_t", "int8_t", "int16_t", "int32_t"]
 
 # --------------------------------------------------------------------------- #
@@ -14,7 +14,7 @@ _supported_type_list = ["uint8_t", "uint16_t", "uint32_t", "int8_t", "int16_t", 
 # --------------------------------------------------------------------------- #
 class GenerateFile:
     """
-    Base class that handles writing a header file and appending events to it.
+    Base class that handles writing a header file and appending traces to it.
     The file path is stored in ``outfile`` and the stream ID (used in templates)
     is stored in ``stream_id``.
     """
@@ -35,12 +35,12 @@ class GenerateFile:
             f.write(out_str)
 
     # --------------------------------------------------------------------- #
-    # Event generation ---------------------------------------------------- #
+    # Trace generation ---------------------------------------------------- #
     # --------------------------------------------------------------------- #
-    def add_event(self, tmpl_str, event):
+    def add_trace(self, tmpl_str, trace):
         inputs = {}
         inputs["stream_id"] = self.stream_id
-        inputs["evt"] = event
+        inputs["trace"] = trace
         template = Template(tmpl_str)
         with open(self.outfile, 'a') as f:
             out_str = template.render(**inputs)
@@ -51,7 +51,7 @@ class GenerateFile:
 # --------------------------------------------------------------------------- #
 class CppHeaderFile(GenerateFile):
     def __init__(self, dpath, streamId):
-        super().__init__(f"{dpath}/event_types.hpp", streamId)
+        super().__init__(f"{dpath}/trace_types.hpp", streamId)
         self._create()
 
     # --------------------------------------------------------------------- #
@@ -59,48 +59,48 @@ class CppHeaderFile(GenerateFile):
     # --------------------------------------------------------------------- #
     def _create(self):
         """
-        Write a minimal header that includes the common event definition,
-        guards, and defines ``EVENT_STREAM_ID``.
+        Write a minimal header that includes the common trace definition,
+        guards, and defines ``TRACE_STREAM_ID``.
         """
         c_code_tmpl = """
 
-        #include <event.hpp>
+        #include <trace.hpp>
 
         #pragma once
 
-        #define EVENT_STREAM_ID  {{ stream_id }}
+        #define TRACE_STREAM_ID  {{ stream_id }}
 
         """
         clean_template = textwrap.dedent(c_code_tmpl)
         super().add_header(clean_template)
 
     # --------------------------------------------------------------------- #
-    # Event type definition ----------------------------------------------- #
+    # Trace type definition ----------------------------------------------- #
     # --------------------------------------------------------------------- #
-    def addEvent(self, event):
+    def addTrace(self, trace):
         """
-        Append a struct and ``EventId`` specialization for the given event.
+        Append a struct and ``TraceId`` specialization for the given trace.
         The struct is marked with ``__attribute__((packed))`` to avoid
         padding between fields.
         """
         c_code_tmpl = """
         typedef struct {
-            {%- for f in evt.params %}
+            {%- for f in trace.params %}
             {%- if f.count is defined %}
             {{ f.type }} {{ f.name }}[{{ f.count }}];
             {%- else %}
             {{ f.type }} {{ f.name }};
             {%- endif %}
             {%- endfor %}
-        } __attribute__((packed)) {{ evt.name }}_t;
+        } __attribute__((packed)) {{ trace.name }}_t;
 
         template <>
-        struct EventId<{{ evt.name }}_t> {
-            static constexpr uint32_t value = {{ evt.id }};
+        struct TraceId<{{ trace.name }}_t> {
+            static constexpr uint32_t value = {{ trace.id }};
         };
         """
         clean_template = textwrap.dedent(c_code_tmpl)
-        super().add_event(clean_template, event)
+        super().add_trace(clean_template, trace)
 
 # --------------------------------------------------------------------------- #
 # Babeltrace metadata generator --------------------------------------------- #
@@ -108,7 +108,7 @@ class CppHeaderFile(GenerateFile):
 class BabeltraceMetadata(GenerateFile):
     """
     Generates a Babeltrace (CTF) configuration file that describes the
-    trace format and all events.  The main file is named simply ``metadata``.
+    trace format and all traces.  The main file is named simply ``metadata``.
     """
     def __init__(self, dpath, streamId):
         super().__init__(f"{dpath}/metadata", streamId)
@@ -154,7 +154,7 @@ class BabeltraceMetadata(GenerateFile):
              packet.context := struct {
                  uint64_t timestamp_begin;
                  uint64_t timestamp_end;
-                 uint32_t events_discarded;
+                 uint32_t traces_discarded;
                  uint32_t packet_size;
                  uint32_t content_size;
                  uint32_t packet_seq_count;
@@ -171,21 +171,21 @@ class BabeltraceMetadata(GenerateFile):
         super().add_header(clean_template)
 
     # --------------------------------------------------------------------- #
-    # Individual event definition ----------------------------------------- #
+    # Individual trace definition ----------------------------------------- #
     # --------------------------------------------------------------------- #
-    def addEvent(self, event):
+    def addTrace(self, trace):
         """
-        Append an ``event`` block to the CTF configuration.  Each event
+        Append an ``trace`` block to the CTF configuration.  Each trace
         contains its name, id, stream ID and a struct of fields.
         """
-        bb_config_event = """
+        bb_config_trace = """
         event {
-            name = {{ evt.name }};
-            id   = {{ evt.id }};
+            name = {{ trace.name }};
+            id   = {{ trace.id }};
             stream_id = {{ stream_id }};
 
             fields := struct {
-                {%- for f in evt.params %}
+                {%- for f in trace.params %}
                 {%- if f.count is defined %}
                 {{ f.type }} {{ f.name }}[{{ f.count }}];
                 {%- else %}
@@ -196,64 +196,65 @@ class BabeltraceMetadata(GenerateFile):
         };
 
         """
-        clean_template = textwrap.dedent(bb_config_event)
-        super().add_event(clean_template, event)
+        clean_template = textwrap.dedent(bb_config_trace)
+        print(trace)
+        super().add_trace(clean_template, trace)
 
 # --------------------------------------------------------------------------- #
 # YAML parsing utilities ---------------------------------------------------- #
 # --------------------------------------------------------------------------- #
 def parse_yaml_file(file_path):
     """
-    Generator that yields one event at a time from a potentially large
+    Generator that yields one trace at a time from a potentially large
     YAML file.  The YAML is expected to be a list of dictionaries,
-    each containing an ``events`` key whose value is a list of events.
+    each containing an ``traces`` key whose value is a list of traces.
     """
     with open(file_path, 'r') as f:
         data = yaml.safe_load(f)
 
-    for event_entry in data:
-        events = event_entry.get('events', [])
-        for ev in events:
+    for trace_entry in data:
+        traces = trace_entry.get('traces', [])
+        for ev in traces:
             yield (ev)
 
 # --------------------------------------------------------------------------- #
 # Validation utilities ------------------------------------------------------ #
 # --------------------------------------------------------------------------- #
-def check_argument(event):
+def check_argument(trace):
     """
-    Validate that the event dictionary contains a string name, a non‑negative
+    Validate that the trace dictionary contains a string name, a non‑negative
     integer ID and parameters that use only supported types.
     If validation fails, print an error message and exit.
     """
-    event_name = event['name']
-    event_id = int(event['id'])
-    if not isinstance(event_name, str):
-        print(f"group:{gName} event name not a string")
+    trace_name = trace['name']
+    trace_id = int(trace['id'])
+    if not isinstance(trace_name, str):
+        print(f"group:{gName} trace name not a string")
         sys.exit(-1)
-    if event_id < 0:
-        print(f"{event_name} event Id negative not supported")
+    if trace_id < 0:
+        print(f"{trace_name} trace Id negative not supported")
         sys.exit(-1)
 
-    params = event.get('params', [])
+    params = trace.get('params', [])
     for p in params:
         t = p['type']
         n = p['name']
         if not isinstance(n, str):
-            print(f"group:{gName} event:{event_name} parameter name is not as type string {n}")
+            print(f"group:{gName} trace:{trace_name} parameter name is not as type string {n}")
             sys.exit(-1)
         if not isinstance(t, str):
-            print(f"group:{gName} event:{event_name} parameter {n}: type is not in string {t}")
+            print(f"group:{gName} trace:{trace_name} parameter {n}: type is not in string {t}")
             sys.exit(-1)
         if 'count' in p:
             c = p['count']
             if not isinstance(c, int):
-                print(f"group:{gName} event:{event_name} parameter {n}: count don't have type integer {c}")
+                print(f"group:{gName} trace:{trace_name} parameter {n}: count don't have type integer {c}")
                 sys.exit(-1)
             if c <= 0:
-                print(f"group:{gName} event:{event_name} parameter {n} count not allow as negative or zero {c}")
+                print(f"group:{gName} trace:{trace_name} parameter {n} count not allow as negative or zero {c}")
                 sys.exit(-1)
         if t not in _supported_type_list:
-            print(f"group:{gName} event:{event_name} have unsupported type {t}")
+            print(f"group:{gName} trace:{trace_name} have unsupported type {t}")
             sys.exit(-1)
 
 # --------------------------------------------------------------------------- #
@@ -262,16 +263,16 @@ def check_argument(event):
 def main(yaml_file, out_path):
     """
     High‑level driver that creates the C++ header and Babeltrace
-    metadata files, then iterates over all events in the YAML file,
+    metadata files, then iterates over all traces in the YAML file,
     validates them, and writes their definitions to both outputs.
     """
     c_file = CppHeaderFile(out_path, 0)
     bb_file = BabeltraceMetadata(out_path, 0)
 
-    for event in parse_yaml_file(yaml_file):
-        check_argument(event)
-        c_file.addEvent(event)
-        bb_file.addEvent(event)
+    for trace in parse_yaml_file(yaml_file):
+        check_argument(trace)
+        c_file.addTrace(trace)
+        bb_file.addTrace(trace)
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

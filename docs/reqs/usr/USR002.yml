@@ -8,6 +8,6 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  Expose an push_event() function that uses atomic operations
-  to enqueue events into the buffer without blocking the caller,
+  Expose an push_trace() function that uses atomic operations
+  to enqueue traces into the buffer without blocking the caller,
   ensuring real‑time safety.

@@ -8,5 +8,5 @@ normative: true
 ref: ''
 reviewed: null
 text: |
-  All event payloads must be encoded using the CTF‑2 base format
+  All trace payloads must be encoded using the CTF‑2 base format
   before being written into packets.

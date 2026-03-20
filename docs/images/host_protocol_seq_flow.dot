@@ -2,7 +2,7 @@ digraph SequenceFlow {
     graph [rankdir = LR];
 
     host [label="Host Tool"];
-    device [label="Device Event\nLog module"];
+    device [label="Device Trace\nLog module"];
 
     host:n -> device:n [label="command"];
     device:s -> host:s [label="response"];

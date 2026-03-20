@@ -1,7 +1,7 @@
 active: true
 derived: false
 header: |
-  Runtime Event Filtering
+  Runtime Trace Filtering
 level: 1.9
 links: []
 normative: true
@@ -9,5 +9,5 @@ ref: ''
 reviewed: null
 text: |
   Provide a hook (e.g., function pointer or callback) that allows the application
-  to decide whether a particular event should be captured based on its type or content,
+  to decide whether a particular trace should be captured based on its type or content,
   evaluated at run time.
