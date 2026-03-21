@@ -42,3 +42,5 @@
 
 # remove build directory
 build
+
+**/__pycache__/*

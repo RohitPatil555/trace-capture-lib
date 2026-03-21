@@ -59,7 +59,8 @@ function example_build()
     cp stream.bin traces/
 
     # Analyse traces
-    babeltrace2 traces
+    cd ${REPO_PATH}
+    python3 ${REPO_PATH}/example/post_analysis/post_analysis.py --input_file ${BUILD_DIR}/example/traces/
 
     cd $EXEC_DIR
 }

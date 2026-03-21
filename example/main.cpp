@@ -44,6 +44,9 @@ void trace_loop_index( uint32_t maxLoopCount ) {
 	for ( idx = 0; idx < maxLoopCount; idx++ ) {
 		/* Update the counter and push the trace. */
 		param->count = idx + 1;
+		if ( param->count == 5 ) {
+			continue;
+		}
 		inst->pushTrace( &loopIdx );
 	}
 
