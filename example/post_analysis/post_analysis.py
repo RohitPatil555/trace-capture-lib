@@ -19,7 +19,6 @@ def execute_graph(input_file):
     for port in src_comp.output_ports.values():
         graph.connect_ports(port, sink_comp.input_ports['in'])
 
-
     # execute graph
     graph.run()
 

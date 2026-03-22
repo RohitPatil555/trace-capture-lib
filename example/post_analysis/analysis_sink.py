@@ -28,7 +28,7 @@ class ExampleSinkPlugin(bt2._UserSinkComponent):
                 else:
                     self.diff_time = ts - self.start_time
                     self.next_index = 0
-                    print(f"Time for loop : {self.diff_time}")
+                    print(f"Time for loop : {self.diff_time} nsec")
             elif name == "loopCount":
                 payload = msg.event.payload_field
                 count = int(payload["count"])
