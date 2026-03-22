@@ -25,19 +25,18 @@ Our own library sits between firmware and Babeltrace. It has two key goals:
 * **Easy integration** – Firmware developers can sprinkle trace calls into their code without worrying about CTF details.
 
 * **Safety & ergonomics** – Written in modern C++20, it uses concepts to catch common mistakes at compile time.
-Feeding data
-The library accepts trace descriptions in a simple YAML file.
+
+* **Feeding data** - The library accepts trace descriptions in a simple YAML file.
 
 A developer writes something like:
 
 ```{.yaml}
-traces:
-  - name: loop_start
-    fields:
-      iteration: uint32
-  - name: loop_end
-    fields:
-      iteration: uint32
+- traces:
+  - name: loopCount
+    id: 1
+    params:
+      - name: count
+        type: uint8_t
 ```
 
 The code generator inside the library produces C++ helper functions that emit these events as CTF packets.
