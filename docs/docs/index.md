@@ -64,7 +64,8 @@ Imagine we have two traces:
 
 We will use **babeltrace** to find out how long the loop ran and whether any indices were missing.
 
-In this example we purposely skip recording index 5 so that we can see how the script reports it as missing. The code for this example lives in the _“example”_ folder.
+In this example we purposely skip recording index 5 so that we can see how the script reports it as missing. The code for this example lives in the
+“example/sample_x86” folder.
 
 ### Trace yaml file
 

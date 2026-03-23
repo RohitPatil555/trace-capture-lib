@@ -4,10 +4,10 @@
 set -e
 
 EXEC_DIR=$PWD
-BUILD_DIR=build
 COPY_ARTIFACTS=false
 EXAMPLE_BUILD=false
 REPO_PATH=$PWD
+BUILD_DIR=${REPO_PATH}/build
 
 function library_ut_test()
 {
@@ -40,12 +40,13 @@ function library_ut_test()
 
 function example_build()
 {
-    rm -rf ${BUILD_DIR}/example
-    mkdir -p ${BUILD_DIR}/example
-    cd ${BUILD_DIR}/example
+    SAMPLE_X86=example/sample_x86
+    rm -rf ${BUILD_DIR}/${SAMPLE_X86}
+    mkdir -p ${BUILD_DIR}/${SAMPLE_X86}
+    cd ${BUILD_DIR}/${SAMPLE_X86}
 
     # config space
-    cmake ${REPO_PATH}/example
+    cmake ${REPO_PATH}/${SAMPLE_X86}
 
     # build cmake
     cmake --build . -- -j$(nproc)
@@ -60,7 +61,7 @@ function example_build()
 
     # Analyse traces
     cd ${REPO_PATH}
-    python3 ${REPO_PATH}/example/post_analysis/post_analysis.py --input_file ${BUILD_DIR}/example/traces/
+    python3 ${REPO_PATH}/${SAMPLE_X86}/post_analysis/post_analysis.py --input_file ${BUILD_DIR}/${SAMPLE_X86}/traces/
 
     cd $EXEC_DIR
 }
