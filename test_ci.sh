@@ -6,6 +6,8 @@ set -e
 EXEC_DIR=$PWD
 COPY_ARTIFACTS=false
 EXAMPLE_BUILD=false
+IS_STM32_BUILD=false
+IS_STM32_RUN=false
 REPO_PATH=$PWD
 BUILD_DIR=${REPO_PATH}/build
 
@@ -66,6 +68,22 @@ function example_build()
     cd $EXEC_DIR
 }
 
+function stm32_build()
+{
+    BARE_METAL=example/stm32
+    rm -rf ${BUILD_DIR}/${BARE_METAL}
+    mkdir -p ${BUILD_DIR}/${BARE_METAL}
+    cd ${BUILD_DIR}/${BARE_METAL}
+
+    # config space
+    cmake ${REPO_PATH}/${BARE_METAL} -DCMAKE_TOOLCHAIN_FILE=toolchain.cmake
+
+    # build cmake
+    cmake --build . -- -j$(nproc)
+
+    cd $EXEC_DIR
+}
+
 # Process named arguments
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -76,6 +94,10 @@ while [[ "$#" -gt 0 ]]; do
         --example)
             EXAMPLE_BUILD="true"
             shift 1 # Move past --example
+            ;;
+        --stm32-build)
+            IS_STM32_BUILD=true
+            shift 1
             ;;
         --artifacts)
             COPY_ARTIFACTS="true"
@@ -95,6 +117,8 @@ done
 
 if [ "$EXAMPLE_BUILD" = "true" ]; then
     example_build
+elif [ "$IS_STM32_BUILD" = "true" ]; then
+    stm32_build
 else
     library_ut_test
 fi
