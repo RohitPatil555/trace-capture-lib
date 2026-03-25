@@ -1,4 +1,6 @@
-#include <stdint.h>
+#include <cstdint>
+
+using namespace std;
 
 extern "C" void Reset_Handler() {
 	uint32_t count = 0;

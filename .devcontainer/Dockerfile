@@ -12,7 +12,7 @@ RUN apt-get update && \
     python3-pip \
     zlib1g-dev libedit-dev libxml2-dev libncurses5-dev libtinfo-dev \
     libssl-dev pkg-config lcov software-properties-common \
-    gcc-arm-none-eabi gdb-multiarch qemu-system-arm \
+    gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib  gdb-multiarch qemu-system-arm \
     clang clang-format clang-tidy clang-tools \
     lld \
     graphviz \
