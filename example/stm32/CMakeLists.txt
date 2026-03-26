@@ -19,6 +19,9 @@ add_executable(${PROJECT_NAME}.elf
     src/main.cpp
 )
 
+target_include_directories(${PROJECT_NAME}.elf
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+
 target_link_options(${PROJECT_NAME}.elf PRIVATE
     -nostdlib
     -T${LINKER_SCRIPT}

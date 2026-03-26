@@ -1,12 +1,19 @@
 #include <cstdint>
+#include <task.hpp>
 
 using namespace std;
 
-extern "C" void Reset_Handler() {
+Task blink_task() {
 	uint32_t count = 0;
-	while ( true ) {
-		count += 1;
+	while ( 1 ) {
+		count++;
 	}
+}
+
+extern "C" void Reset_Handler() {
+	auto task = blink_task();
+
+	task.resume();
 }
 
 // Vector Table
