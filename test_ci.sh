@@ -84,6 +84,13 @@ function stm32_build()
     cd $EXEC_DIR
 }
 
+function run_stm32 {
+    rm -f ${BUILD_DIR}/uart1.bin
+    qemu-system-arm -machine stm32vldiscovery -kernel build/example/stm32/stm32.elf -serial file:${BUILD_DIR}/uart1.bin -display none &
+    sleep 1m
+    killall qemu-system-arm
+}
+
 # Process named arguments
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -97,6 +104,10 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --stm32-build)
             IS_STM32_BUILD=true
+            shift 1
+            ;;
+        --stm32-run)
+            IS_STM32_RUN=true
             shift 1
             ;;
         --artifacts)
@@ -119,6 +130,8 @@ if [ "$EXAMPLE_BUILD" = "true" ]; then
     example_build
 elif [ "$IS_STM32_BUILD" = "true" ]; then
     stm32_build
+elif [ "$IS_STM32_RUN" = "true" ]; then
+    run_stm32
 else
     library_ut_test
 fi

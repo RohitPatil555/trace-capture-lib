@@ -30,7 +30,7 @@ struct Task {
 			}
 		}
 
-		static Task get_return_object_on_allocation_failure() noexcept { return Task{ nullptr }; }
+		static Task get_return_object_on_allocation_failure() noexcept { return Task(); }
 	};
 
 	std::coroutine_handle<promise_type> handle;

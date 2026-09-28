@@ -1,0 +1,6 @@
+- traces:
+  - name: coroutine
+    id: 1
+    params:
+      - name: task_id
+        type: uint8_t

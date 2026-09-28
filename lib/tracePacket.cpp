@@ -79,12 +79,16 @@ bool tracePacket::addTrace( TraceIntf *tracePtr ) {
  * -------------------------------------------------------------------- */
 
 void tracePacket::buildPacket( uint64_t ts ) {
-	size_t hdrSize = 0;
+	size_t hdrSize	  = 0;
+	size_t remainSize = 0;
 
 	hdrSize				 = sizeof( buffer ) - buffer.tracePayload.size();
 	buffer.packet_size	 = sizeof( buffer ) * 8;		 // convert to bit
 	buffer.content_size	 = ( hdrSize + currOffset ) * 8; // convert to bit
 	buffer.timestamp_end = ts;
+
+	remainSize = sizeof( buffer ) - ( hdrSize + currOffset );
+	memset( &buffer.tracePayload[ currOffset ], 0, remainSize );
 }
 
 /* --------------------------------------------------------------------

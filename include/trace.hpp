@@ -45,8 +45,8 @@ template <typename T> struct TraceId;
  * -------------------------------------------------------------------------- */
 class TraceIntf {
 public:
-	TraceIntf()			 = default;
-	virtual ~TraceIntf() = default;
+	TraceIntf()	 = default;
+	~TraceIntf() = default;
 
 	virtual std::span<const std::byte> getTraceInRaw() = 0;
 	virtual void setTimestamp( uint64_t ts )		   = 0;

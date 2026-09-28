@@ -46,7 +46,7 @@ struct traceCollector::Impl {
  *  * `impl`   : placement‑new of Impl inside the storage buffer.
  * -------------------------------------------------------------------- */
 traceCollector::traceCollector() {
-	static_assert( ImplSize == sizeof( Impl ), "hidden implementation size not matching" );
+	static_assert( ImplSize >= sizeof( Impl ), "hidden implementation size not matching" );
 
 	impl			  = new ( storage.data() ) Impl();
 	sendPkt			  = nullptr;

@@ -35,5 +35,6 @@ public:
 		return true;
 	}
 
+	bool isIdle();
 	void run( void );
 };

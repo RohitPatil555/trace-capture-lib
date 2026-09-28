@@ -1,8 +1,12 @@
 #include <compiler_req_apis.h>
 #include <cstdint>
 #include <scheduler.hpp>
+#include <span>
 #include <string.h>
 #include <task.hpp>
+
+#include <stm32/uart.hpp>
+#include <tracePlatform.hpp>
 
 #define TOTAL_TASK_FRAME_SIZE 512
 
@@ -27,7 +31,17 @@ Task countLoopTask( size_t maxLoopCount ) {
 }
 
 extern "C" void Reset_Handler() {
+	Uart logIntf( USART1_ADDR );
+	traceCollector *inst = nullptr;
+	Stm32TracePlatform gPltf;
+
+	inst = traceCollector::getInstance();
+	inst->setStreamId( TRACE_STREAM_ID );
+	inst->setPlatformIntf( &gPltf );
+
 	Task::set_task_pool( getFixMemoryPool() );
+
+	logIntf.initialize();
 
 	auto task1 = countLoopTask( 10 );
 	auto task2 = countLoopTask( 1000 );
@@ -40,9 +54,27 @@ extern "C" void Reset_Handler() {
 	sched.append( &task3 );
 
 	// Infinite loop to make cpu busy.
-	while ( 1 ) {
+	while ( !sched.isIdle() ) {
 		sched.run();
 	}
+
+	inst->forceSync();
+	auto pkt = inst->getSendPacket();
+	if ( pkt.has_value() ) {
+		span<const byte> data = pkt.value();
+		logIntf.send( data );
+	}
+	/* Write all available packets to the file. */
+	while ( pkt.has_value() ) {
+		span<const byte> data = pkt.value();
+		logIntf.send( data );
+		inst->sendPacketCompleted(); // Mark packet as transmitted.
+		pkt = inst->getSendPacket(); // Get next packet, if any.
+	}
+
+	// loop for idle
+	while ( 1 )
+		;
 }
 
 // Vector Table
