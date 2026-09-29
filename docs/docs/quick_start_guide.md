@@ -13,7 +13,9 @@ You must create a **YAML file** to define your traces and their parameters. This
 Use the following required syntax:
 
 ```yaml
-- traces:
+config:
+  clock: 1000000
+traces:
   - name: trace1
     id: 1
     params:

@@ -1,4 +1,6 @@
-- traces:
+config:
+  clock: 1000000
+traces:
   - name: coroutine
     id: 1
     params:

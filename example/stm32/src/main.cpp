@@ -60,10 +60,6 @@ extern "C" void Reset_Handler() {
 
 	inst->forceSync();
 	auto pkt = inst->getSendPacket();
-	if ( pkt.has_value() ) {
-		span<const byte> data = pkt.value();
-		logIntf.send( data );
-	}
 	/* Write all available packets to the file. */
 	while ( pkt.has_value() ) {
 		span<const byte> data = pkt.value();

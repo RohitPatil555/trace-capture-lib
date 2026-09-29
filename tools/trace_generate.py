@@ -18,10 +18,11 @@ class GenerateFile:
     The file path is stored in ``outfile`` and the stream ID (used in templates)
     is stored in ``stream_id``.
     """
-    def __init__(self, file_path, streamId):
+    def __init__(self, file_path, streamId, clock):
         self.outfile = file_path
         self.bHeaderAdded = False
         self.stream_id = streamId
+        self.clock = clock
 
     # --------------------------------------------------------------------- #
     # Header generation --------------------------------------------------- #
@@ -29,6 +30,7 @@ class GenerateFile:
     def add_header(self, tmpl_str):
         inputs = {}
         inputs["stream_id"] = self.stream_id
+        inputs["clock"] = self.clock
         template = Template(tmpl_str)
         with open(self.outfile, 'w+') as f:
             out_str = template.render(**inputs)
@@ -50,8 +52,8 @@ class GenerateFile:
 # C++ header file generator ------------------------------------------------- #
 # --------------------------------------------------------------------------- #
 class CppHeaderFile(GenerateFile):
-    def __init__(self, dpath, streamId):
-        super().__init__(f"{dpath}/trace_types.hpp", streamId)
+    def __init__(self, dpath, streamId, clock):
+        super().__init__(f"{dpath}/trace_types.hpp", streamId, clock)
         self._create()
 
     # --------------------------------------------------------------------- #
@@ -110,8 +112,8 @@ class BabeltraceMetadata(GenerateFile):
     Generates a Babeltrace (CTF) configuration file that describes the
     trace format and all traces.  The main file is named simply ``metadata``.
     """
-    def __init__(self, dpath, streamId):
-        super().__init__(f"{dpath}/metadata", streamId)
+    def __init__(self, dpath, streamId, clock):
+        super().__init__(f"{dpath}/metadata", streamId, clock)
         self._create()
 
     def _create(self):
@@ -123,13 +125,20 @@ class BabeltraceMetadata(GenerateFile):
         bb_config_hdr = """\
         /* CTF 1.8 */
 
-        typedef integer { size = 64; align = 8; signed = false; } uint64_t;
-        typedef integer { size = 32; align = 8; signed = false; } uint32_t;
-        typedef integer { size = 16; align = 8; signed = false; } uint16_t;
-        typedef integer { size = 8; align = 8; signed = false; }  uint8_t;
-        typedef integer { size = 32; align = 8; signed = true; }  int32_t;
-        typedef integer { size = 16; align = 8; signed = true; }  int16_t;
-        typedef integer { size = 8; align = 8; signed = true; }   int8_t;
+        typedef integer { size = 64; align = 1; signed = false; } uint64_t;
+        typedef integer { size = 32; align = 1; signed = false; } uint32_t;
+        typedef integer { size = 16; align = 1; signed = false; } uint16_t;
+        typedef integer { size = 8; align = 1; signed = false; }  uint8_t;
+        typedef integer { size = 32; align = 1; signed = true; }  int32_t;
+        typedef integer { size = 16; align = 1; signed = true; }  int16_t;
+        typedef integer { size = 8; align = 1; signed = true; }   int8_t;
+
+        clock {
+             name = socClock;
+             freq = {{ clock }}; /* 1 GHz = ns */
+        };
+
+        typedef integer { size = 64; align = 1; map = clock.socClock.value; } timestamp64_t;
 
         trace {
             major = 1;
@@ -143,17 +152,12 @@ class BabeltraceMetadata(GenerateFile):
 
         };
 
-        clock {
-             name = myclock;
-             freq = 1000000000; /* 1 GHz = ns */
-        };
-
         stream {
              id = {{ stream_id }};
 
              packet.context := struct {
-                 uint64_t timestamp_begin;
-                 uint64_t timestamp_end;
+                 timestamp64_t timestamp_begin;
+                 timestamp64_t timestamp_end;
                  uint32_t traces_discarded;
                  uint32_t packet_size;
                  uint32_t content_size;
@@ -162,7 +166,7 @@ class BabeltraceMetadata(GenerateFile):
 
              event.header := struct {
                  uint32_t id;
-                 uint64_t timestamp;
+                 timestamp64_t timestamp;
              };
         };
 
@@ -203,7 +207,17 @@ class BabeltraceMetadata(GenerateFile):
 # --------------------------------------------------------------------------- #
 # YAML parsing utilities ---------------------------------------------------- #
 # --------------------------------------------------------------------------- #
-def parse_yaml_file(file_path):
+def get_clock(file_path):
+    """
+    Get Soc clock in Hz from YAML file
+    """
+    with open(file_path, 'r') as f:
+        data = yaml.safe_load(f)
+
+    config = data.get("config", {})
+    return config.get("clock", 1000)
+
+def get_trace_from_yaml(file_path):
     """
     Generator that yields one trace at a time from a potentially large
     YAML file.  The YAML is expected to be a list of dictionaries,
@@ -212,10 +226,9 @@ def parse_yaml_file(file_path):
     with open(file_path, 'r') as f:
         data = yaml.safe_load(f)
 
-    for trace_entry in data:
-        traces = trace_entry.get('traces', [])
-        for ev in traces:
-            yield (ev)
+    traces = data.get('traces', [])
+    for ev in traces:
+        yield (ev)
 
 # --------------------------------------------------------------------------- #
 # Validation utilities ------------------------------------------------------ #
@@ -267,10 +280,11 @@ def main(yaml_file, out_path):
     metadata files, then iterates over all traces in the YAML file,
     validates them, and writes their definitions to both outputs.
     """
-    c_file = CppHeaderFile(out_path, 0)
-    bb_file = BabeltraceMetadata(out_path, 0)
+    cvalue = get_clock(yaml_file)
+    c_file = CppHeaderFile(out_path, 0, cvalue)
+    bb_file = BabeltraceMetadata(out_path, 0, cvalue)
 
-    for trace in parse_yaml_file(yaml_file):
+    for trace in get_trace_from_yaml(yaml_file):
         check_argument(trace)
         c_file.addTrace(trace)
         bb_file.addTrace(trace)

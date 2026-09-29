@@ -1,4 +1,6 @@
-- traces:
+config:
+  clock: 1000000000
+traces:
   - name: loopCount
     id: 1
     params:
