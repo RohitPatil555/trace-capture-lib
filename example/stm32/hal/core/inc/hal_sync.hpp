@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT | Author: Rohit Patil
 
 #pragma once
 

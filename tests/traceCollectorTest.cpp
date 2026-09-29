@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT | Author: Rohit Patil
 #include <gtest/gtest.h>
 #include <trace.hpp>
 #include <traceCollector.hpp>

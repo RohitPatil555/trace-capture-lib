@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT | Author: Rohit Patil
 #include <tracePlatform.hpp>
 
 static uint64_t g_counter;

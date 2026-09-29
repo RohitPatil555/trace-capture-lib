@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT | Author: Rohit Patil
 /**
  * @file hal_reg.hpp
  * @brief Register and bitfield abstraction for hardware access.

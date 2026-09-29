@@ -31,7 +31,9 @@ Our own library sits between firmware and Babeltrace. It has two key goals:
 A developer writes something like:
 
 ```{.yaml}
-- traces:
+config:
+  clock: 1000000
+traces:
   - name: loopCount
     id: 1
     params:
@@ -75,7 +77,9 @@ Below is a YAML file describing the two events:
 * **loopCount** – records the loop index in a `count` parameter.
 
 ```yaml
-- traces:
+config:
+  clock: 1000000
+traces:
   - name: loopCount
     id: 1
     params:
