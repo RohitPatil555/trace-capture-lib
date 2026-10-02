@@ -12,5 +12,7 @@ theme:
 nav:
   - Home: index.md
   - Quick Start: quick_start_guide.md
+  - Example:
+    - Embedded: examples/EmbeddedCoroutine.md
   - Other:
     - Requirement: static-reqs\/index.html
