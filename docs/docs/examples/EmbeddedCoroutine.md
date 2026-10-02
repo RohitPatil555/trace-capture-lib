@@ -5,9 +5,10 @@ In this post, we'll take a look at C++20 co-routine analysis using the trace-cap
 ## High Level View
 
 • We have bare-metal co-routine code written in C++20.
+
 • It emits an event every time a co-routine is switched.
 
-![img](example/embd_example.png)
+![img](embd_example.png)
 
 ## Script
 
