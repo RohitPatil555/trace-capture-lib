@@ -14,7 +14,9 @@ In this post, we'll take a look at C++20 co-routine analysis using the trace-cap
 
 Since the events are now captured in Babeltrace, we can write a script that generates a Gantt chart showing how the co-routines are scheduled.
 
-Refer code here : [Python Script to draw graph](../../../example/stm32/src/task_timing_graph.py)
+```
+Refer code here : example/stm32/src/task_timing_graph.py
+```
 
 __Note: The timing appears constant because we use simulated timestamps rather than an actual hardware timer__
 
