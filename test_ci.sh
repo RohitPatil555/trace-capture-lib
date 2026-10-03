@@ -85,10 +85,17 @@ function stm32_build()
 }
 
 function run_stm32 {
-    rm -f ${BUILD_DIR}/uart1.bin
-    qemu-system-arm -machine stm32vldiscovery -kernel build/example/stm32/stm32.elf -serial file:${BUILD_DIR}/uart1.bin -display none &
+    # Create trace analysis folder
+    TRACE_ANALYSIS_DIR=${BUILD_DIR}/trace_analysis
+    rm -rf ${TRACE_ANALYSIS_DIR}
+    mkdir -p ${TRACE_ANALYSIS_DIR}
+    cp ${BUILD_DIR}/example/stm32/generated/metadata ${TRACE_ANALYSIS_DIR}/
+
+    qemu-system-arm -machine stm32vldiscovery -kernel build/example/stm32/stm32.elf -serial file:${TRACE_ANALYSIS_DIR}/uart1.bin -display none &
     sleep 1m
     killall qemu-system-arm
+
+    python3 example/stm32/src/task_timing_graph.py ${TRACE_ANALYSIS_DIR}/ ${TRACE_ANALYSIS_DIR}/timegraph.png
 }
 
 # Process named arguments

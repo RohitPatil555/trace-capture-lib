@@ -28,6 +28,10 @@ RUN apt-get update && \
 RUN pip install --no-cache-dir --break-system-packages \
         mkdocs mkdocs-material doorstop gcovr pre-commit
 
+# Copy and install dependencies
+RUN apt-get update && \
+    apt-get install python3-pandas python3-plotly -y
+
 # Set default user and workspace
 USER vscode
 WORKDIR /workspaces
