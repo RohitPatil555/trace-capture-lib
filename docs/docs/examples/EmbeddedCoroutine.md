@@ -69,6 +69,26 @@ Once the trace is captured, we use a custom Python script (located in `example/s
 
 ![Timing Graph](timegraph.png)
 
+## How to execute example ?
+
+* Use below command to build example.
+```
+./test_ci.sh --stm32-build
+```
+* Execute stm32 machine to collect traces, this will take time as we it have sleep call in script.
+```
+./test_ci.sh --stm32-run
+qemu-system-arm: terminating on signal 15 from pid 38461 ()
+Input Trace:  /workspaces/trace-capture-lib/build/trace_analysis
+Output Chart: /workspaces/trace-capture-lib/build/trace_analysis/timegraph.png
+{'task': ['task_0', 'task_1', 'task_2', 'task_0', 'task_1', 'task_2'], 'start': [20, 30, 40, 50, 60, 70], 'end': [30, 40, 50, 60, 70, 80]}
+done
+```
+* View task schedule in generated png file
+```
+build/trace_analysis/timegraph.png
+```
+
 ## Future Outlook: AI-Augmented Analysis
 
 While the current implementation focuses on human-readable visualization, the structured nature of the data emitted by `trace-capture-lib` opens the door to much more advanced use cases.
