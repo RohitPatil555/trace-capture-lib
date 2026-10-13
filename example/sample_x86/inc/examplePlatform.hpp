@@ -10,12 +10,9 @@
 
 class TestPlatform : public tracePlatform {
 	std::mutex traceMutex;
-	std::mutex packetMutex;
 
 public:
 	uint64_t getTimestamp();
 	bool traceTryLock();
 	void traceUnlock();
-	void packetLock();
-	void packetUnlock();
 };

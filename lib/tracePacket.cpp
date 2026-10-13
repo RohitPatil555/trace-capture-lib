@@ -24,8 +24,9 @@ tracePacket::~tracePacket() { memset( &buffer, 0, sizeof( buffer ) ); }
  * from a previous use contaminates the new packet.
  * -------------------------------------------------------------------- */
 void tracePacket::init( uint32_t streamId, uint32_t seqNo, uint64_t ts ) {
-	currOffset = 0;
-	traceCount = 0;
+	currOffset	= 0;
+	traceCount	= 0;
+	bPacketFull = false;
 
 	memset( &buffer, 0, sizeof( buffer ) );
 	buffer.stream_id		= streamId;
@@ -37,13 +38,7 @@ void tracePacket::init( uint32_t streamId, uint32_t seqNo, uint64_t ts ) {
  * Check whether the packet has reached its maximum number of traces.
  * Returns true when no more traces can be added; otherwise false.
  * -------------------------------------------------------------------- */
-bool tracePacket::isPacketFull() {
-	if ( traceCount < CONFIG_TRACE_MAX_PER_PACKET ) {
-		return false;
-	}
-
-	return true;
-}
+bool tracePacket::isPacketFull() { return bPacketFull; }
 
 /* --------------------------------------------------------------------
  * Append a single trace to the packet payload.
@@ -55,13 +50,14 @@ bool tracePacket::isPacketFull() {
 bool tracePacket::addTrace( TraceIntf *tracePtr ) {
 	span<const byte> tracePayload;
 
-	// Prtrace overflow: do not add when capacity is exhausted.
-	if ( isPacketFull() ) {
-		return false;
-	}
-
 	// Retrieve the raw, byte‑wise representation of the trace.
 	tracePayload = tracePtr->getTraceInRaw();
+
+	// check possible to write event
+	if ( ( currOffset + tracePayload.size() ) > TRACE_MAX_PAYLOAD_IN_BYTES ) {
+		bPacketFull = true;
+		return false;
+	}
 
 	// Copy the payload into the packet buffer at the current offset.
 	memcpy( &buffer.tracePayload[ currOffset ], tracePayload.data(), tracePayload.size() );

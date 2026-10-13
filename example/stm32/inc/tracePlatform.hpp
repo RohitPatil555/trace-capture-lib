@@ -11,6 +11,4 @@ public:
 	uint64_t getTimestamp();
 	bool traceTryLock();
 	void traceUnlock();
-	void packetLock();
-	void packetUnlock();
 };

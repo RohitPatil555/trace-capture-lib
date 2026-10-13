@@ -11,7 +11,3 @@ uint64_t Stm32TracePlatform::getTimestamp() {
 bool Stm32TracePlatform::traceTryLock() { return true; }
 
 void Stm32TracePlatform::traceUnlock() {}
-
-void Stm32TracePlatform::packetLock() {}
-
-void Stm32TracePlatform::packetUnlock() {}

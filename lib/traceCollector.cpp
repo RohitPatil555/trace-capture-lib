@@ -16,46 +16,35 @@
 /* --------------------------------------------------------------------------
  *  Project headers
  * -------------------------------------------------------------------------- */
-#include <Queue.hpp>
 #include <internal/tracePacket.hpp>
-#include <staticPool.hpp>
 #include <traceCollector.hpp>
 
-/* --------------------------------------------------------------------
- *  Global pool of packet objects.
- *
- *  The pool size is defined by the configuration macro
- *  CONFIG_PACKET_COUNT_MAX.  It provides fast allocation and
- *  deallocation without dynamic memory fragmentation.
- * -------------------------------------------------------------------- */
-static StaticPool<tracePacket, CONFIG_PACKET_COUNT_MAX> pktPool;
 
-/* --------------------------------------------------------------------
- *  Private implementation of traceCollector (P‑Impl).
- *
- *  The Impl only contains a queue that holds pointers to packets
- *  ready for transmission.  The queue capacity matches the pool
- *  size so no allocation failure can occur.
- * -------------------------------------------------------------------- */
-struct traceCollector::Impl {
-	Queue<tracePacket_ptr_t, CONFIG_PACKET_COUNT_MAX> queue;
-};
+using namespace std;
 
 /* --------------------------------------------------------------------
  *  Constructor – initialise hidden implementation and state.
  *
  *  * `impl`   : placement‑new of Impl inside the storage buffer.
  * -------------------------------------------------------------------- */
-traceCollector::traceCollector() {
-	static_assert( ImplSize >= sizeof( Impl ), "hidden implementation size not matching" );
+traceCollector::traceCollector( std::span<std::byte> buffer ) {
+	size_t maxPktCountInBuffer = 0;
+	tracePacket *ptr		   = nullptr;
 
-	impl			  = new ( storage.data() ) Impl();
-	sendPkt			  = nullptr;
-	currPkt			  = nullptr;
 	discardTraceCount = 0;
 	pktSqnNo		  = 0;
 	streamId		  = 0;
 	pltf			  = nullptr;
+
+	maxPktCountInBuffer = ( buffer.size() / sizeof( tracePacket ) );
+	assert( maxPktCountInBuffer >= 1 );
+
+	ptr				= reinterpret_cast<tracePacket *>( buffer.data() );
+	tracePacketList = std::span<tracePacket>( ptr, maxPktCountInBuffer );
+
+	freeIndex = 0;
+	fullIndex = 0;
+	currPkt	  = &tracePacketList[ 0 ];
 }
 
 /* --------------------------------------------------------------------
@@ -69,9 +58,7 @@ tracePacket *traceCollector::getCurrentPacket() {
 	uint64_t ts = 0;
 
 	if ( currPkt == nullptr ) {
-		pltf->packetLock();
-		currPkt = pktPool.allocate();
-		pltf->packetUnlock();
+		currPkt = &tracePacketList[ freeIndex ];
 
 		ts = pltf->getTimestamp();
 		currPkt->init( streamId, pktSqnNo, ts );
@@ -91,31 +78,21 @@ tracePacket *traceCollector::getCurrentPacket() {
  *  insertion never fails – the following assert guarantees that.
  * -------------------------------------------------------------------- */
 void traceCollector::sendPacket() {
-	bool qstatus = false;
-	// this must not be null in this path as per design.
-	assert( currPkt != nullptr );
+	size_t next_freeIndex = 0;
+	next_freeIndex		  = ( freeIndex + 1 ) & ( tracePacketList.size() - 1 );
 
-	pltf->packetLock();
-	qstatus = impl->queue.insert( currPkt );
+	if ( next_freeIndex == fullIndex ) {
+		// packet list is empty, nothing found as free buffer.
+		return;
+	}
 
-	// As queue size and packet buffer have same count it
-	// never get asserted.
-	assert( qstatus );
-
-	currPkt = nullptr;
-	pltf->packetUnlock();
+	freeIndex = next_freeIndex;
+	currPkt	  = nullptr;
 }
 
-/* --------------------------------------------------------------------
- *  Singleton accessor.
- *
- *  The collector is a global, stateless object.  This function
- *  returns the single instance.
- * -------------------------------------------------------------------- */
-traceCollector *traceCollector::getInstance() noexcept {
-	static traceCollector traceInst;
-
-	return &traceInst;
+size_t traceCollector::getPacketBufferSize( uint32_t packetCount ) noexcept {
+	assert( ( packetCount & ( packetCount - 1 ) ) == 0 );
+	return ( sizeof( tracePacket ) * packetCount );
 }
 
 /* --------------------------------------------------------------------
@@ -128,29 +105,33 @@ traceCollector *traceCollector::getInstance() noexcept {
  *     enqueue it for sending.
  * -------------------------------------------------------------------- */
 void traceCollector::sendTrace( TraceIntf *evt ) {
-	tracePacket *curr = getCurrentPacket();
+	tracePacket *curr = nullptr;
 	uint64_t _ts	  = 0;
-
-	if ( curr == nullptr ) {
-		discardTraceCount++;
-		return;
-	}
 
 	if ( !pltf->traceTryLock() ) {
 		curr->dropTrace();
 		return;
 	}
 
+	curr = getCurrentPacket();
+
+	if ( curr->isPacketFull() ) {
+		discardTraceCount++;
+		pltf->traceUnlock();
+		return;
+	}
+
 	_ts = pltf->getTimestamp();
 	evt->setTimestamp( _ts );
 	curr->addTrace( evt );
-	pltf->traceUnlock();
 
 	if ( curr->isPacketFull() ) {
 		_ts = pltf->getTimestamp();
 		curr->buildPacket( _ts );
 		sendPacket();
 	}
+
+	pltf->traceUnlock();
 }
 
 /* --------------------------------------------------------------------
@@ -159,13 +140,14 @@ void traceCollector::sendTrace( TraceIntf *evt ) {
  *  The packet is returned to the pool so it can be reused.
  * -------------------------------------------------------------------- */
 void traceCollector::sendPacketCompleted() {
-	if ( sendPkt != nullptr ) {
-		pltf->packetLock();
-		pktPool.release( sendPkt );
-		pltf->packetUnlock();
+	size_t nextFullIndex = 0;
 
-		sendPkt = nullptr;
+	nextFullIndex = ( fullIndex + 1 ) & ( tracePacketList.size() - 1 );
+	if ( nextFullIndex == ( freeIndex + 1 ) ) {
+		return;
 	}
+
+	fullIndex = nextFullIndex;
 }
 
 /* --------------------------------------------------------------------
@@ -196,20 +178,16 @@ void traceCollector::forceSync( void ) {
  *  packet buffer; if the queue was empty `std::nullopt` is returned.
  * -------------------------------------------------------------------- */
 std::optional<std::span<const std::byte>> traceCollector::getSendPacket() {
-	if ( sendPkt == nullptr ) {
-		pltf->packetLock();
+	tracePacket *sendPacketPtr = nullptr;
 
-		auto pkt = impl->queue.remove();
-
-		pltf->packetUnlock();
-
-		if ( !pkt.has_value() ) {
-			return std::nullopt;
-		}
-		sendPkt = pkt.value();
+	if ( fullIndex == freeIndex ) {
+		// list is empty
+		return nullopt;
 	}
 
-	return std::optional<std::span<const std::byte>>( sendPkt->getPacketInRaw() );
+	sendPacketPtr = &tracePacketList[ fullIndex ];
+
+	return std::optional<std::span<const std::byte>>( sendPacketPtr->getPacketInRaw() );
 }
 
 /* --------------------------------------------------------------------

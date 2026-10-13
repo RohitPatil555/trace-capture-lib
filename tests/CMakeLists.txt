@@ -49,8 +49,7 @@ if(SANITIZERS)
 endif()
 
 # Set additional sources for test
-set(TESTS_SRCS basic.cpp
-    packetPool.cpp
+set(TESTS_SRCS packetPool.cpp
     packetOp.cpp
     traceCollectorTest.cpp
 )

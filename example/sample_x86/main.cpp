@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <thread>
+#include <vector>
 
 #include <examplePlatform.hpp>
 
@@ -17,6 +18,8 @@ using namespace std;
  */
 static TestPlatform g_pltf;
 
+static traceCollector *inst;
+
 /*
  * Posts a series of traces in a tight loop.
  *
@@ -30,10 +33,6 @@ void trace_loop_index( uint32_t maxLoopCount ) {
 	Trace<loopTime_t> loopTime;
 	loopCount_t *param	  = nullptr;
 	loopTime_t *timeParam = nullptr;
-	traceCollector *inst  = nullptr;
-
-	/* Retrieve the singleton instance of the collector. */
-	inst = traceCollector::getInstance();
 
 	timeParam = loopTime.getParam();
 	param	  = loopIdx.getParam();
@@ -64,15 +63,11 @@ void trace_loop_index( uint32_t maxLoopCount ) {
  */
 bool dumpFile( string_view filePath ) {
 	ofstream ofs( filePath.data(), ios::binary );
-	traceCollector *inst = nullptr;
 
 	if ( !ofs ) {
 		cerr << "Failed to open file.\n";
 		return false;
 	}
-
-	/* Retrieve the singleton instance of the collector. */
-	inst = traceCollector::getInstance();
 
 	/* Flush pending data so that packets are available for export. */
 	inst->forceSync();
@@ -92,10 +87,13 @@ bool dumpFile( string_view filePath ) {
 }
 
 int main() {
-	traceCollector *inst = nullptr;
-
 	/* Initialise the collector with a stream ID and platform interface. */
-	inst = traceCollector::getInstance();
+	size_t bufSize = traceCollector::getPacketBufferSize( 2 );
+	vector<byte> buffer( bufSize );
+
+	/* Retrieve the singleton instance of the collector. */
+	inst = new traceCollector( std::span<std::byte>( buffer.data(), buffer.size() ) );
+
 	inst->setStreamId( TRACE_STREAM_ID );
 	inst->setPlatformIntf( &g_pltf );
 
@@ -105,8 +103,10 @@ int main() {
 	/* Export the collected data to a file. */
 	if ( !dumpFile( "stream.bin" ) ) {
 		cerr << "Stream is not captured " << endl;
+		delete inst;
 		return -1;
 	}
 
+	delete inst;
 	return 0;
 }

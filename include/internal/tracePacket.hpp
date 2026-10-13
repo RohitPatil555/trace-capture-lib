@@ -6,6 +6,7 @@
  *  Standard library headers
  * -------------------------------------------------------------------------- */
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -42,7 +43,8 @@ typedef struct {
  * -------------------------------------------------------------------------- */
 class tracePacket {
 	/* Current offset inside the payload array where the next trace will be copied. */
-	std::size_t currOffset;
+	std::atomic<std::size_t> currOffset;
+	std::atomic<bool> bPacketFull;
 
 	/* Number of traces already added to this packet. */
 	std::size_t traceCount;

@@ -27,38 +27,39 @@ public:
 
 	bool traceTryLock() { return true; }
 	void traceUnlock() {}
-
-	void packetLock() {}
-	void packetUnlock() {}
 };
 
 static TestPlatform g_TestPltf;
 bool g_isInitialized = false;
 
 class TraceCollectorTest : public ::testing::Test {
+	std::vector<std::byte> buffer;
+
 protected:
+	traceCollector *inst;
+
 	void SetUp() override {
-		if ( !g_isInitialized ) {
-			auto *inst3 = traceCollector::getInstance();
-			inst3->setStreamId( 0 );
-			inst3->setPlatformIntf( &g_TestPltf );
-			g_isInitialized = true;
-		}
+		size_t bufferSize = traceCollector::getPacketBufferSize( 2 );
+
+		buffer.clear();
+		buffer.resize( bufferSize );
+
+		inst = new traceCollector( std::span<std::byte>( buffer.data(), buffer.size() ) );
+
+		inst->setStreamId( 0 );
+		inst->setPlatformIntf( &g_TestPltf );
+		g_isInitialized = true;
+	}
+
+	void TearDown() override {
+		delete inst;
+		buffer.clear();
 	}
 };
 
-// Test: Verify singleton instance
-TEST_F( TraceCollectorTest, SingletonInstance ) {
-	auto *inst1 = traceCollector::getInstance();
-	auto *inst2 = traceCollector::getInstance();
-	EXPECT_EQ( inst1, inst2 );
-
-	// TODO: need to see what to do for UT
-}
-
 // Test: Push traces and send first packet
 TEST_F( TraceCollectorTest, PushAndSendFirstPacket ) {
-	auto *collector = traceCollector::getInstance();
+	auto *collector = inst;
 
 	// Create mock traces
 	auto evt			= new Trace<mock_trace_t>;
@@ -69,6 +70,9 @@ TEST_F( TraceCollectorTest, PushAndSendFirstPacket ) {
 	for ( int i = 0; i < CONFIG_TRACE_MAX_PER_PACKET; i++ ) {
 		collector->pushTrace( evt );
 	}
+
+	// as packet size not full force sync
+	collector->forceSync();
 
 	delete evt;
 
@@ -83,7 +87,7 @@ TEST_F( TraceCollectorTest, PushAndSendFirstPacket ) {
 
 // Test: Handle empty send queue
 TEST_F( TraceCollectorTest, EmptySendQueue ) {
-	auto *collector = traceCollector::getInstance();
+	auto *collector = inst;
 
 	auto sendPacket = collector->getSendPacket();
 	EXPECT_FALSE( sendPacket.has_value() );
@@ -91,7 +95,7 @@ TEST_F( TraceCollectorTest, EmptySendQueue ) {
 
 // Test: Sequential packet sending with completion
 TEST_F( TraceCollectorTest, SequentialPackets ) {
-	auto *collector = traceCollector::getInstance();
+	auto *collector = inst;
 
 	// Create mock traces
 	auto evt1			 = new Trace<mock_trace_t>;
@@ -102,6 +106,9 @@ TEST_F( TraceCollectorTest, SequentialPackets ) {
 	for ( int i = 0; i < CONFIG_TRACE_MAX_PER_PACKET; i++ ) {
 		collector->pushTrace( evt1 );
 	}
+
+	// as event size can't full packet, mark as force sync.
+	collector->forceSync();
 
 	delete evt1;
 
@@ -122,6 +129,9 @@ TEST_F( TraceCollectorTest, SequentialPackets ) {
 	for ( int i = 0; i < CONFIG_TRACE_MAX_PER_PACKET; i++ ) {
 		collector->pushTrace( evt2 );
 	}
+
+	// as event size can't full packet, mark as force sync.
+	collector->forceSync();
 
 	delete evt2;
 

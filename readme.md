@@ -96,8 +96,10 @@ When you run CMake, it will:
 #include "trace_collector.h"
 
 int main() {
+    size_t bufSize = traceCollector::getPacketBufferSize();
+    std::vector<std::byte> buffer(bufSize);
     /* ---------- Init Collector ---------- */
-    auto& tc = traceCollector::getInstance();
+    auto& tc = traceCollector(std::span<std::byte>(buffer.data(), buffer.size()));
 
     // Provide a platform implementation (see below)
     extern tracePlatform g_platform;   // defined elsewhere
@@ -136,7 +138,6 @@ int main() {
 
 | Method | Description |
 |--------|-------------|
-| `static traceCollector& getInstance()` | Retrieve the global instance. |
 | `void setStreamId(uint32_t id)` | Set CTF stream ID (must be unique per trace). |
 | `void setPlatformIntf(tracePlatform* plt)` | Provide platform‑specific timestamp & lock functions. |
 | `bool pushTrace(const traceBase* ev)` | Queue an trace for the next packet. |
@@ -176,8 +177,6 @@ You must provide an implementation that the collector uses for:
 | `uint64_t getTimestamp()` | Return monotonic timestamp (e.g., from a high‑resolution timer). |
 | `bool traceTryLock()` | Acquire exclusive lock while emitting traces. |
 | `void traceUnlock()` | Release the lock. |
-| `void packetLock()` | Acquire exclusive lock while emitting traces. |
-| `void packetUnlock()` | Release the lock. |
 
 ```cpp
 class MyPlatform : public tracePlatform {
@@ -185,8 +184,6 @@ public:
     uint64_t getTimestamp() override { return hw_get_time(); }
     bool traceTryLock()   override { return critical_try_section_enter(); }
     void traceUnlock() override { critical_section_exit();  }
-    void packetLock()   override { critical_section_enter(); }
-    void packetUnlock() override { critical_section_exit();  }
 };
 ```
 

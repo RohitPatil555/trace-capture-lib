@@ -38,12 +38,6 @@ public:
 
 	/* Release the lock after mutation is finished. */
 	virtual void traceUnlock() = 0;
-
-	/* Acquire an exclusive lock for packet collection and send */
-	virtual void packetLock() = 0;
-
-	/* Release the lock for packet after mutation is finished. */
-	virtual void packetUnlock() = 0;
 };
 
 /* --------------------------------------------------------------------------
@@ -58,20 +52,7 @@ public:
  *      - sendPkt : packet that has been finished and is ready for sending
  * -------------------------------------------------------------------------- */
 class traceCollector {
-	/* ----------------------------------------------------------------------
-	 *  Impl
-	 *
-	 *  The actual implementation details are hidden behind the pointer `impl`.
-	 *  To keep memory usage predictable, the implementation is stored inside
-	 *  a fixed‑size array (`storage`) that is large enough for any expected
-	 *  layout.  The size of this buffer is intentionally small – it can be
-	 *  tuned by changing `ImplSize` if the implementation grows.
-	 * ---------------------------------------------------------------------- */
-	struct Impl;						   // forward declaration
-	static constexpr size_t ImplSize = 48; // bytes reserved for Impl
-	alignas( std::max_align_t ) std::array<std::byte, ImplSize> storage;
-
-	Impl *impl;
+	std::span<tracePacket> tracePacketList;
 
 	/* ----------------------------------------------------------------------
 	 *  Platform pointer
@@ -87,21 +68,14 @@ class traceCollector {
 	 *      - currPkt: the packet being populated with traces
 	 *      - sendPkt: the packet that is in progress to send out.
 	 * ---------------------------------------------------------------------- */
+	uint32_t freeIndex;
+	uint32_t fullIndex;
 	tracePacket *currPkt;
-	tracePacket *sendPkt;
 
 	uint32_t
 		discardTraceCount; // number of traces dropped because the current packet is not available
 	uint32_t pktSqnNo;	   // monotonically increasing sequence number for packets.
 	uint32_t streamId;	   // identifier that will be embedded in each packet header.
-
-	/* ----------------------------------------------------------------------
-	 *  Private constructor
-	 *
-	 *  The singleton is created on first use via `getInstance()`.  The ctor
-	 *  sets up the Impl object inside the storage buffer.
-	 * ---------------------------------------------------------------------- */
-	traceCollector();
 
 	/* lazily creates or re‑uses a packet for writing. */
 	tracePacket *getCurrentPacket();
@@ -113,12 +87,9 @@ class traceCollector {
 	void sendTrace( TraceIntf *evt );
 
 public:
-	/* ----------------------------------------------------------------------
-	 *  Singleton accessor
-	 *
-	 *  `noexcept` guarantees that retrieving the instance cannot throw.
-	 * ---------------------------------------------------------------------- */
-	static traceCollector *getInstance() noexcept;
+	traceCollector( std::span<std::byte> buffer );
+
+	static size_t getPacketBufferSize( uint32_t packetCount ) noexcept;
 
 	/* ----------------------------------------------------------------------
 	 *  Trace submission

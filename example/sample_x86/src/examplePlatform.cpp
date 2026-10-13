@@ -15,7 +15,3 @@ uint64_t TestPlatform::getTimestamp() {
 bool TestPlatform::traceTryLock() { return traceMutex.try_lock(); }
 
 void TestPlatform::traceUnlock() { traceMutex.unlock(); }
-
-void TestPlatform::packetLock() { packetMutex.lock(); }
-
-void TestPlatform::packetUnlock() { packetMutex.unlock(); }
