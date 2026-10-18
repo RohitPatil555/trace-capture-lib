@@ -92,7 +92,7 @@ TEST_F( TracePacketTest, PaddingValidation ) {
 	pktBuf	 = reinterpret_cast<const packet_buffer_t *>( raw.data() );
 
 	EXPECT_EQ( pktBuf->stream_id, TEST_STREAM_ID );
-	EXPECT_EQ( pktBuf->traces_discarded, 0 );
+	EXPECT_EQ( pktBuf->traces_discarded, 1 );
 	EXPECT_EQ( pktBuf->packet_seq_count, TEST_SEQ_NO );
 
 	EXPECT_EQ( pktBuf->content_size, CONVERT_SIZE_IN_BITS( sizeof( packet_buffer_t ) - padSize ) );

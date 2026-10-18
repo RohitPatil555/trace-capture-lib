@@ -7,11 +7,17 @@
 #include <task.hpp>
 
 #include <stm32/uart.hpp>
-#include <tracePlatform.hpp>
+#include <stm32Tracer.hpp>
 
 #define TOTAL_TASK_FRAME_SIZE 512
 
+// 2 packet and every packet size is 688 bytes.
+#define TOTAL_TRACE_BUFFER_SIZE ( 688 * 2 )
+
 using namespace std;
+
+static array<byte, TOTAL_TRACE_BUFFER_SIZE> gTraceBuffer;
+traceCollector *gInst = nullptr;
 
 TaskPool *Task::promise_type::poolPtr = nullptr;
 alignas( uint32_t ) static uint8_t raw_memory_frame_pool[ TOTAL_TASK_FRAME_SIZE ];
@@ -31,12 +37,17 @@ Task countLoopTask( size_t maxLoopCount ) {
 	co_await std::suspend_always{};
 }
 
+traceCollector *getStm32TraceHandler() { return gInst; }
+
 extern "C" void Reset_Handler() {
 	Uart logIntf( USART1_ADDR );
 	traceCollector *inst = nullptr;
 	Stm32TracePlatform gPltf;
+	traceCollector cInst{ span<byte>( gTraceBuffer ) };
 
-	inst = traceCollector::getInstance();
+	gInst = &cInst;
+
+	inst = getStm32TraceHandler();
 	inst->setStreamId( TRACE_STREAM_ID );
 	inst->setPlatformIntf( &gPltf );
 

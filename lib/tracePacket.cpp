@@ -47,7 +47,7 @@ bool tracePacket::isPacketFull() { return bPacketFull; }
  * and updates the offset/size counters accordingly.
  * Returns true on success, false if the packet was already full.
  * -------------------------------------------------------------------- */
-bool tracePacket::addTrace( TraceIntf *tracePtr ) {
+void tracePacket::addTrace( TraceIntf *tracePtr ) {
 	span<const byte> tracePayload;
 
 	// Retrieve the raw, byte‑wise representation of the trace.
@@ -56,7 +56,8 @@ bool tracePacket::addTrace( TraceIntf *tracePtr ) {
 	// check possible to write event
 	if ( ( currOffset + tracePayload.size() ) > TRACE_MAX_PAYLOAD_IN_BYTES ) {
 		bPacketFull = true;
-		return false;
+		dropTrace();
+		return;
 	}
 
 	// Copy the payload into the packet buffer at the current offset.
@@ -66,7 +67,9 @@ bool tracePacket::addTrace( TraceIntf *tracePtr ) {
 	currOffset += tracePayload.size();
 	traceCount++;
 
-	return true;
+	bPacketFull = ( currOffset == TRACE_MAX_PAYLOAD_IN_BYTES );
+
+	return;
 }
 
 /* --------------------------------------------------------------------
@@ -86,6 +89,8 @@ void tracePacket::buildPacket( uint64_t ts ) {
 
 	remainSize = sizeof( buffer ) - ( hdrSize + currOffset );
 	memset( &buffer.tracePayload[ currOffset ], 0, remainSize );
+
+	bPacketFull = true;
 }
 
 /* --------------------------------------------------------------------

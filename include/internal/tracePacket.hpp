@@ -43,8 +43,8 @@ typedef struct {
  * -------------------------------------------------------------------------- */
 class tracePacket {
 	/* Current offset inside the payload array where the next trace will be copied. */
-	std::atomic<std::size_t> currOffset;
-	std::atomic<bool> bPacketFull;
+	std::size_t currOffset;
+	bool bPacketFull;
 
 	/* Number of traces already added to this packet. */
 	std::size_t traceCount;
@@ -63,7 +63,7 @@ public:
 	bool isPacketFull();
 
 	/* Add an Trace to the packet; returns false if the packet is already full. */
-	bool addTrace( TraceIntf *tracePtr );
+	void addTrace( TraceIntf *tracePtr );
 
 	/* Increment the counter of dropped traces (used when a packet overflows). */
 	void dropTrace() { buffer.traces_discarded++; }

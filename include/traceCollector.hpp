@@ -6,6 +6,7 @@
  *  Standard library headers
  * -------------------------------------------------------------------------- */
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -68,20 +69,21 @@ class traceCollector {
 	 *      - currPkt: the packet being populated with traces
 	 *      - sendPkt: the packet that is in progress to send out.
 	 * ---------------------------------------------------------------------- */
-	uint32_t freeIndex;
-	uint32_t fullIndex;
+	std::atomic<uint32_t> freeIndex;
+	std::atomic<uint32_t> fullIndex;
 	tracePacket *currPkt;
 
 	uint32_t
 		discardTraceCount; // number of traces dropped because the current packet is not available
 	uint32_t pktSqnNo;	   // monotonically increasing sequence number for packets.
 	uint32_t streamId;	   // identifier that will be embedded in each packet header.
+	uint32_t packetMask = 0;
 
 	/* lazily creates or re‑uses a packet for writing. */
 	tracePacket *getCurrentPacket();
 
 	/* finalises the current packet and hands it to send-Q */
-	void sendPacket();
+	void updatePacketIndex();
 
 	/* serialises an trace into the current packet.*/
 	void sendTrace( TraceIntf *evt );
@@ -117,8 +119,12 @@ public:
 	 *  If system stuck and not generating enough trace to push packet for send.
 	 *  In such scenario, call this API, this will force current packet to send
 	 *  all collected trace.
+	 *
+	 * return : true mean packet sync succesfully else return false.
+	 *          false indicate caller must retry after some time as current
+	 * 				trace write operation going on.
 	 * -------------------------------------------------------------------- */
-	void forceSync( void );
+	bool forceSync( void );
 
 	/* ----------------------------------------------------------------------
 	 *  Configuration helpers

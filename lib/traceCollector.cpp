@@ -38,13 +38,15 @@ traceCollector::traceCollector( std::span<std::byte> buffer ) {
 
 	maxPktCountInBuffer = ( buffer.size() / sizeof( tracePacket ) );
 	assert( maxPktCountInBuffer >= 1 );
+	assert( !( maxPktCountInBuffer & ( maxPktCountInBuffer - 1 ) ) );
 
 	ptr				= reinterpret_cast<tracePacket *>( buffer.data() );
 	tracePacketList = std::span<tracePacket>( ptr, maxPktCountInBuffer );
 
-	freeIndex = 0;
-	fullIndex = 0;
-	currPkt	  = &tracePacketList[ 0 ];
+	freeIndex  = 0;
+	fullIndex  = 0;
+	currPkt	   = &tracePacketList[ 0 ];
+	packetMask = maxPktCountInBuffer - 1;
 }
 
 /* --------------------------------------------------------------------
@@ -55,12 +57,13 @@ traceCollector::traceCollector( std::span<std::byte> buffer ) {
  *  and reset the discard counter.
  * -------------------------------------------------------------------- */
 tracePacket *traceCollector::getCurrentPacket() {
-	uint64_t ts = 0;
+	uint64_t ts				  = 0;
+	uint32_t currentFreeIndex = 0;
 
 	if ( currPkt == nullptr ) {
-		currPkt = &tracePacketList[ freeIndex ];
-
-		ts = pltf->getTimestamp();
+		currentFreeIndex = freeIndex.load( std::memory_order_relaxed );
+		currPkt			 = &tracePacketList[ currentFreeIndex ];
+		ts				 = pltf->getTimestamp();
 		currPkt->init( streamId, pktSqnNo, ts );
 		discardTraceCount = 0;
 		pktSqnNo++;
@@ -77,17 +80,19 @@ tracePacket *traceCollector::getCurrentPacket() {
  *  can be built.  Because the queue capacity equals the pool size,
  *  insertion never fails – the following assert guarantees that.
  * -------------------------------------------------------------------- */
-void traceCollector::sendPacket() {
-	size_t next_freeIndex = 0;
-	next_freeIndex		  = ( freeIndex + 1 ) & ( tracePacketList.size() - 1 );
+void traceCollector::updatePacketIndex() {
+	uint32_t currFreeIndex = freeIndex.load( std::memory_order_relaxed );
 
-	if ( next_freeIndex == fullIndex ) {
-		// packet list is empty, nothing found as free buffer.
+	currPkt = nullptr;
+
+	if ( ( ( currFreeIndex + 1 ) & packetMask ) == fullIndex.load( std::memory_order_acquire ) ) {
+		// packet queue is full
 		return;
 	}
 
-	freeIndex = next_freeIndex;
-	currPkt	  = nullptr;
+	// move to next index.
+	currFreeIndex = ( currFreeIndex + 1 ) & packetMask;
+	freeIndex.store( currFreeIndex, std::memory_order_release );
 }
 
 size_t traceCollector::getPacketBufferSize( uint32_t packetCount ) noexcept {
@@ -115,20 +120,26 @@ void traceCollector::sendTrace( TraceIntf *evt ) {
 
 	curr = getCurrentPacket();
 
+	// Queue is not free and packet is also full keep droping packet.
 	if ( curr->isPacketFull() ) {
 		discardTraceCount++;
-		pltf->traceUnlock();
+		// pool for free packet.
+		updatePacketIndex();
+
+		pltf->traceUnlock(); // free lock and return.
 		return;
 	}
 
+	// Add event to packet.
 	_ts = pltf->getTimestamp();
 	evt->setTimestamp( _ts );
 	curr->addTrace( evt );
 
+	// Check packet is full then build payload.
 	if ( curr->isPacketFull() ) {
 		_ts = pltf->getTimestamp();
 		curr->buildPacket( _ts );
-		sendPacket();
+		updatePacketIndex();
 	}
 
 	pltf->traceUnlock();
@@ -140,14 +151,15 @@ void traceCollector::sendTrace( TraceIntf *evt ) {
  *  The packet is returned to the pool so it can be reused.
  * -------------------------------------------------------------------- */
 void traceCollector::sendPacketCompleted() {
-	size_t nextFullIndex = 0;
+	uint32_t currFullIndex = 0;
 
-	nextFullIndex = ( fullIndex + 1 ) & ( tracePacketList.size() - 1 );
-	if ( nextFullIndex == ( freeIndex + 1 ) ) {
+	currFullIndex = fullIndex.load( std::memory_order_relaxed );
+	if ( currFullIndex == freeIndex.load( std::memory_order_acquire ) ) {
 		return;
 	}
 
-	fullIndex = nextFullIndex;
+	currFullIndex = ( currFullIndex + 1 ) & packetMask;
+	fullIndex.store( currFullIndex, std::memory_order_release );
 }
 
 /* --------------------------------------------------------------------
@@ -155,10 +167,15 @@ void traceCollector::sendPacketCompleted() {
  *  In such scenario, call this API, this will force current packet to send
  *  all collected trace.
  * -------------------------------------------------------------------- */
-void traceCollector::forceSync( void ) {
+bool traceCollector::forceSync( void ) {
 	if ( currPkt == nullptr ) {
-		// No packet to flush hence return early.
-		return;
+		// No packet to flush hence return success.
+		// this indicate packet in send list need to be pull by sender routine
+		return true;
+	}
+
+	if ( !pltf->traceTryLock() ) {
+		return false;
 	}
 
 	uint64_t _ts	  = 0;
@@ -167,7 +184,10 @@ void traceCollector::forceSync( void ) {
 	_ts = pltf->getTimestamp();
 	curr->buildPacket( _ts );
 
-	sendPacket();
+	updatePacketIndex();
+
+	pltf->traceUnlock();
+	return true;
 }
 
 /* --------------------------------------------------------------------
@@ -179,13 +199,16 @@ void traceCollector::forceSync( void ) {
  * -------------------------------------------------------------------- */
 std::optional<std::span<const std::byte>> traceCollector::getSendPacket() {
 	tracePacket *sendPacketPtr = nullptr;
+	uint32_t currFullIndex	   = 0;
 
-	if ( fullIndex == freeIndex ) {
+	currFullIndex = fullIndex.load( std::memory_order_relaxed );
+
+	if ( currFullIndex == freeIndex.load( std::memory_order_acquire ) ) {
 		// list is empty
 		return nullopt;
 	}
 
-	sendPacketPtr = &tracePacketList[ fullIndex ];
+	sendPacketPtr = &tracePacketList[ currFullIndex ];
 
 	return std::optional<std::span<const std::byte>>( sendPacketPtr->getPacketInRaw() );
 }

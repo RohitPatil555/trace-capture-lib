@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT | Author: Rohit Patil
 #include <scheduler.hpp>
 
-#include <tracePlatform.hpp>
+#include <stm32Tracer.hpp>
 
 bool scheduler::isIdle() {
 	bool isIdle = true;
@@ -20,7 +20,7 @@ void scheduler::run( void ) {
 	Trace<coroutine_t> traceCoroutine;
 	coroutine_t *tmsg = nullptr;
 
-	inst = traceCollector::getInstance();
+	inst = getStm32TraceHandler();
 	tmsg = traceCoroutine.getParam();
 
 	for ( size_t i = 0; i < taskCount; i++ ) {
